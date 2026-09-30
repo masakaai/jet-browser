@@ -1,0 +1,4 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {isPublicIP,webURL,resolvePublic,startProxy} from '../src/network.mjs';
+test('block private, mapped, multicast, metadata and reserved addresses',()=>{for(const ip of ['127.0.0.1','10.1.2.3','172.16.0.1','192.168.1.1','169.254.169.254','100.64.0.1','0.0.0.0','::1','::ffff:127.0.0.1','fc00::1','fe80::1','224.0.0.1'])assert.equal(isPublicIP(ip),false,ip);assert.equal(isPublicIP('1.1.1.1'),true);});
+test('reject private destination and non-web schemes',async()=>{await assert.rejects(resolvePublic('127.0.0.1'));for(const url of ['file:///etc/passwd','ftp://example.com','http://example.com:22'])assert.throws(()=>webURL(url));});
+test('proxy rejects requests to loopback',async()=>{const p=await startProxy();try{const response=await fetch(p.url+'/');assert.equal(response.status,403);}finally{p.close();}});
