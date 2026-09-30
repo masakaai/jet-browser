@@ -48,3 +48,13 @@ try {
 ```
 
 No browser keys or shared runtime secrets should be bundled into a mobile/web client. Use the authenticated backend for those clients.
+
+## WPE and synchronization experiment
+
+`experiments/wpe-sync/` is isolated from production. It contains a Rust process supervisor, a Debian WPE WebDriver image, a same-host cold-profile-copy check, a Chrome-to-WPE bidirectional synthetic state check, and three-way merge tests. It does not migrate the user's real browser credentials or expose a public CDP endpoint. The current production worker remains unchanged.
+
+The WPE image needs `libwpebackend-fdo`, accessibility libraries and GStreamer base plugins in addition to the packaged driver. MiniBrowser is at `/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser`; the experiment uses `wpe:browserOptions` with both `--headless` and `--automation` (custom args replace defaults). Remote container name is `masaka-wpe-sync-spike`. Its limits are 2 CPU / 2 GiB, with no published ports or production credentials.
+
+Executed checks passed for Chrome ↔ WPE synthetic HttpOnly/Secure/SameSite cookies, localStorage, a tab's sessionStorage, and a JSON IndexedDB record. With the shared env loaded, the check also transfers a dedicated test account's bearer token both ways and verifies authenticated API calls, then signs out only that test-created session. This is a bounded proof, not all-credential synchronization or third-party login compatibility.
+
+Run with the experiment's separate `seccomp.json`, `--security-opt no-new-privileges`, and `--security-opt systempaths=unconfined` for nested bubblewrap namespaces. These relaxed container path rules are **experiment-only**, not production security approval. WPE sandboxing is not disabled. Inspect the dated local verification report before interpreting experimental results as product capabilities.
