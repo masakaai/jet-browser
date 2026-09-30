@@ -9,7 +9,7 @@ MASAKA browser runtime, deployed on the owner's `deeptensor` SSH host. This repo
 - Private JPEG previews, navigation, clicks, text, key presses, scroll, exact-hostname HTTPS credential filling.
 - AES-256-GCM encrypted profile persistence (cookies, local storage and IndexedDB), scoped to account identity.
 - DNS-validated, IP-pinned HTTP CONNECT proxy; blocks private, loopback, link-local and reserved destinations. Chromium uses proxy even for loopback, with non-proxied WebRTC/QUIC disabled.
-- Session deadlines, lease/heartbeat handling, graceful stop, server-side settlement.
+- Session deadlines with a bounded five-second shutdown grace for profile persistence, lease/heartbeat handling, graceful stop, server-side settlement. Billing never exceeds the reserved session duration.
 
 This first runtime uses Node.js + Playwright/Chromium. It is not a Rust/WPE engine, a public CDP/WebDriver endpoint, a sub-30ms startup system, or per-session VM isolation. Those need separate engine/runtime work. Preview is refreshed JPEG, not video/WebRTC. Popup windows and downloads are currently disabled. Chromium profiles do not persist sessionStorage, OS keychains, or every browser-managed credential.
 
@@ -20,13 +20,13 @@ Use the shared local `/Users/asklv/Projects/socai/docs/work/20260930/masaka.env`
 ```sh
 npm ci
 npm test
-docker build -t masaka-jet-browser:0.1.4 .
+docker build -t masaka-jet-browser:0.1.7 .
 docker run -d --name masaka-jet-browser --restart unless-stopped --init \
   --shm-size=1g --memory=4g --cpus=2 --pids-limit=512 \
   --dns=1.1.1.1 --dns=1.0.0.1 \
   --security-opt no-new-privileges \
   --security-opt seccomp=./seccomp_profile.json \
-  --env-file ../worker.env masaka-jet-browser:0.1.4
+  --env-file ../worker.env masaka-jet-browser:0.1.7
 ```
 
 Remote directory: `/data0/deeptensor_engineers/lvbo/masaka/jet-browser`.

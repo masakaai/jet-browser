@@ -12,4 +12,5 @@ export class JetBrowser {
   type(id,text){return this.action(id,{kind:'type',text});}
   press(id,key){return this.action(id,{kind:'key',key});}
   scroll(id,delta){return this.action(id,{kind:'scroll',delta});}
+  snapshot(id){return this.action(id,{kind:'snapshot'});}
 }
