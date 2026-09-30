@@ -2,7 +2,7 @@
 export class JetBrowser {
   constructor({apiKey,baseUrl='https://masaka-backend.vercel.app'}){this.apiKey=apiKey;this.baseUrl=baseUrl.replace(/\/$/,'');}
   async request(path,method='GET',body){const r=await fetch(this.baseUrl+'/api/'+path,{method,headers:{Authorization:'Bearer '+this.apiKey,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error||'Browser API error');return data;}
-  create({url,profileId=null,maxSeconds=300,name='Agent session'}){return this.request('sessions','POST',{url,profile_id:profileId,max_seconds:maxSeconds,name});}
+  create({url='https://duckduckgo.com/',profileId=null,maxSeconds=300,name='Agent session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,max_seconds:maxSeconds,name});}
   get(id){return this.request('sessions/'+encodeURIComponent(id));}
   stop(id){return this.request('sessions/'+encodeURIComponent(id)+'/stop','POST',{});}
   async waitForReady(id,{timeout=60000}={}){const start=Date.now();while(Date.now()-start<timeout){const s=await this.get(id);if(s.status==='running')return s;if(['failed','completed'].includes(s.status))throw Error(s.error||'Session ended');await new Promise(r=>setTimeout(r,1200));}throw Error('Browser startup timed out');}
