@@ -336,8 +336,7 @@ impl Wpe {
             "--size=1280x800".into(),
         ];
         let browser_proxy = if let Some(proxy) = proxy {
-            let (argument, capability) = runtime_proxy(proxy)?;
-            args.push(format!("--proxy={argument}"));
+            let (_argument, capability) = runtime_proxy(proxy)?;
             Some(capability)
         } else {
             None
@@ -366,9 +365,11 @@ impl Wpe {
             return Err("Invalid page-load strategy".into());
         }
         let mut always_match = json!({"wpe:browserOptions":{"binary":"/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser","args":args}});
-        // MiniBrowser's automation path creates its WebKit context outside the
-        // ordinary CLI setup. The standard WebDriver proxy capability is the
-        // authoritative network path; the CLI flag remains defense-in-depth.
+        // MiniBrowser's `--proxy` flag is a WebKit network proxy URI, but WPE
+        // 2.54 applies it as a direct TLS endpoint for HTTPS and produces an
+        // "unexpected TLS packet" error against a plaintext CONNECT proxy.
+        // The W3C capability correctly distinguishes httpProxy and sslProxy
+        // and is therefore the single authoritative network path.
         if let Some(proxy) = browser_proxy {
             always_match["proxy"] = proxy;
         }
@@ -612,7 +613,7 @@ impl Wpe {
         )
     }
     pub fn export_state(&self) -> Result<Value> {
-        let cookies = self.request(Method::GET, &self.path("/cookie")?, None)?;
+        let native_cookies = self.request(Method::GET, &self.path("/cookie")?, None)?;
         let mut state = self.request(
             Method::POST,
             &self.path("/execute/async")?,
@@ -622,7 +623,38 @@ impl Wpe {
             return Err(format!("Profile export failed: {error}"));
         }
         let object = state.as_object_mut().ok_or("Invalid profile export")?;
-        object.insert("cookies".into(), cookies);
+        let mut cookies = native_cookies
+            .as_array()
+            .cloned()
+            .ok_or("Invalid native cookie export")?;
+        let visible = object
+            .remove("visible_cookies")
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default();
+        if visible.len() > 500 || cookies.len() > 500 {
+            return Err("Profile has too many cookies".into());
+        }
+        for cookie in visible {
+            let name = cookie.get("name").and_then(Value::as_str).unwrap_or("");
+            let value = cookie.get("value").and_then(Value::as_str).unwrap_or("");
+            let domain = cookie.get("domain").and_then(Value::as_str).unwrap_or("");
+            if name.is_empty()
+                || name.len() > 256
+                || value.len() > 4096
+                || domain.is_empty()
+                || domain.len() > 253
+            {
+                continue;
+            }
+            let present = cookies.iter().any(|saved| {
+                saved.get("name").and_then(Value::as_str) == Some(name)
+                    && saved.get("value").and_then(Value::as_str) == Some(value)
+            });
+            if !present && cookies.len() < 500 {
+                cookies.push(cookie);
+            }
+        }
+        object.insert("cookies".into(), Value::Array(cookies));
         Ok(state)
     }
     pub fn import_state(&self, state: &Value, expected_origin: &str) -> Result<Value> {

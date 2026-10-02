@@ -27,7 +27,7 @@ export class MasakaBrowserClient {
     if(raw){if(!response.ok)throw Error(`Browser API error (${response.status})`);return response;}
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||`Browser API error (${response.status})`);return data;
   }
-  create({url='https://duckduckgo.com/',profileId=null,proxyId=null,previewMode='semantic',maxSeconds=300,name='Browser session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,proxy_id:proxyId,preview_mode:previewMode,max_seconds:maxSeconds,name});}
+  create({url='https://duckduckgo.com/',profileId=null,proxyId=null,previewMode='visual',maxSeconds=300,name='Browser session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,proxy_id:proxyId,preview_mode:previewMode,max_seconds:maxSeconds,name});}
   get(id){return this.request('sessions/'+encodeURIComponent(id));}
   async stop(id){try{return await this.request('sessions/'+encodeURIComponent(id)+'/stop','POST',{});}finally{this.controls.delete(id);}}
   async waitForReady(id,{timeout=60000,signal}={}){const start=Date.now();while(Date.now()-start<timeout){if(signal?.aborted)throw signal.reason||Error('Aborted');const session=await this.get(id);if(session.status==='running')return session;if(['failed','completed'].includes(session.status))throw Error(session.error||'Session ended');await wait(900);}throw Error('Browser startup timed out');}

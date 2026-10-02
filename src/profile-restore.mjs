@@ -25,3 +25,13 @@ export async function applyPortableProfile(engine,state,tracker,stateURL=null,{p
  markProfileStateRestored(tracker,targetURL,value);
  return true;
 }
+
+export async function replayPortableCache(engine,state,targetURL){
+ if(!state)return false;
+ const actualURL=String(await engine.url());if(!['http:','https:'].includes(new URL(actualURL).protocol))return false;
+ requireProfileOrigin(actualURL,targetURL);
+ const value=profileStateForRestore(state,targetURL,{origins:new Set(),deletions:new Set()}),cache=value?.cache_storage||[];
+ if(!cache.length)return false;
+ await engine.importState(cacheOnlyState(value),new URL(targetURL).origin);
+ return true;
+}

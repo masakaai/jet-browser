@@ -19,7 +19,7 @@ Use the shared local `/Users/asklv/Projects/socai/docs/work/20260930/masaka.env`
 ```sh
 npm ci
 npm test
-docker build -f Dockerfile.wpe-worker -t masaka-jet-browser-wpe:0.5.82 .
+docker build -f Dockerfile.wpe-worker -t masaka-jet-browser-wpe:0.5.92 .
 docker run -d --name masaka-jet-browser-wpe --restart unless-stopped --init \
   --shm-size=1g --memory=4g --cpus=2 --pids-limit=512 \
   --dns=1.1.1.1 --dns=1.0.0.1 \
@@ -27,7 +27,7 @@ docker run -d --name masaka-jet-browser-wpe --restart unless-stopped --init \
   --security-opt seccomp=./seccomp_profile.json \
   --security-opt systempaths=unconfined \
   --env-file ../worker.env -e WORKER_ID=deeptensor-wpe-01 -e WORKER_CAPACITY=1 \
-  masaka-jet-browser-wpe:0.5.82
+  masaka-jet-browser-wpe:0.5.92
 ```
 
 Remote directory: `/data0/deeptensor_engineers/lvbo/masaka/jet-browser`.

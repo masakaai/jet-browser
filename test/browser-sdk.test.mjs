@@ -23,6 +23,13 @@ test('browser SDK fixes preview transport before session launch',async()=>{
  assert.equal(JSON.parse(calls[0].init.body).preview_mode,'visual');
 });
 
+test('browser SDK defaults new sessions to visual frames',async()=>{
+ const calls=[],fetchImpl=async(url,init)=>{calls.push({url,init});return response({id:'session-1',preview_mode:'visual'});};
+ const browser=new MasakaBrowserClient({accessToken:'account-token',projectId:project,fetchImpl});
+ await browser.create();
+ assert.equal(JSON.parse(calls[0].init.body).preview_mode,'visual');
+});
+
 test('browser SDK connects to direct worker and assembles chunked frames',async()=>{
  const sent=[];
  class FakeSocket{

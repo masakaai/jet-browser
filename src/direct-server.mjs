@@ -19,6 +19,8 @@ export const requireFreshInputTicket=(state,now=Math.floor(Date.now()/1000))=>{
 };
 
 export const DIRECT_ACTION_TYPES=new Set(['input','navigate','tab-switch','tab-new','tab-close']);
+export const frameBackpressured=(socket,event)=>
+  (event==='frame'||event==='frame-start')&&socket.bufferedAmount>64_000;
 const readyPayload=(state,scope)=>({session_id:state.claims.sid,scope,preview_mode:state.claims.mode,viewport:state.control.row.viewport||{width:1280,height:800},tabs:state.control.tabs||[],active_tab:state.control.activeTab||null});
 
 const releaseInput=async control=>{try{await control.releaseInput?.();}finally{control.endInput?.();}};
@@ -203,11 +205,11 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
         // frame/snapshot instead of leaving a permanently stale mirror.
         if(socket.readyState!==WebSocket.OPEN)continue;
         if(socket.bufferedAmount>8_000_000){socket.close(1013,'Preview client is too slow');continue;}
-        // Pixels are latest-state data. Never build a queue of obsolete
-        // frames behind a lossy/slow connection; reconnect requests a fresh
-        // compositor frame. Chunks belonging to an already-started frame are
-        // still kept together so the viewer never observes a partial PNG.
-        if((event==='frame'||event==='frame-start')&&socket.bufferedAmount>64_000){socket.close(1013,'Preview client is too slow');continue;}
+        // Pixels are latest-state data. Skip an obsolete frame when the
+        // previous one is still in flight, but keep the viewer connected so
+        // the next compositor probe can deliver the newest state. Chunks for
+        // an already-started frame remain ordered and are never dropped.
+        if(frameBackpressured(socket,event))continue;
         if(payload instanceof ArrayBuffer||ArrayBuffer.isView(payload)||Buffer.isBuffer(payload)){
           const buffer=Buffer.isBuffer(payload)?payload:Buffer.from(payload.buffer||payload,payload.byteOffset||0,payload.byteLength||payload.byteLength);
           if(!json(socket,{type:'binary',event,length:buffer.length})){socket.close(1013,'Preview client is too slow');continue;}

@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {acknowledgeSemantic,DIRECT_ACTION_TYPES,expectSemanticAcknowledgement,queueSemanticControl,requireFreshInputTicket} from '../src/direct-server.mjs';
+import {acknowledgeSemantic,DIRECT_ACTION_TYPES,expectSemanticAcknowledgement,frameBackpressured,queueSemanticControl,requireFreshInputTicket} from '../src/direct-server.mjs';
 
 test('direct input protocol includes real browser tab lifecycle actions',()=>{
  assert.deepEqual([...DIRECT_ACTION_TYPES],['input','navigate','tab-switch','tab-new','tab-close']);
+});
+
+test('Visual backpressure skips only the next whole stale frame',()=>{
+ const socket={bufferedAmount:64_001};
+ assert.equal(frameBackpressured(socket,'frame'),true);
+ assert.equal(frameBackpressured(socket,'frame-start'),true);
+ assert.equal(frameBackpressured(socket,'frame-chunk'),false);
+ assert.equal(frameBackpressured({bufferedAmount:64_000},'frame'),false);
 });
 
 test('semantic snapshots remain pending until the viewer acknowledges the envelope',async()=>{

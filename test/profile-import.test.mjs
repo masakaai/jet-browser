@@ -50,6 +50,14 @@ test('application objects using the internal tag name round-trip without coercio
  for(const value of [{__masaka:'date',value:'application-value'},{nested:{__masaka:'application',value:3}}])assert.deepEqual(await decode(await encode(value)),value);
 });
 
+test('profile export provides a bounded fallback for visible cookies omitted by WPE WebDriver',async()=>{
+ const source=await readFile(new URL('../rust/profile-export.js',import.meta.url),'utf8');
+ const previous={document:globalThis.document,location:globalThis.location,localStorage:globalThis.localStorage,sessionStorage:globalThis.sessionStorage,indexedDB:globalThis.indexedDB,caches:globalThis.caches};
+ const storage={length:0,key:()=>null,getItem:()=>null};globalThis.document={cookie:'secure_session=visible-value; preference=dark'};globalThis.location={hostname:'account.example',protocol:'https:'};globalThis.localStorage=globalThis.sessionStorage=storage;globalThis.indexedDB={databases:async()=>[]};globalThis.caches={keys:async()=>[]};
+ try{const result=await new Promise(resolve=>new Function(source)(resolve));assert.deepEqual(result.visible_cookies,[{name:'secure_session',value:'visible-value',domain:'account.example',path:'/',expiry:-1,httpOnly:false,secure:true,sameSite:'Lax'},{name:'preference',value:'dark',domain:'account.example',path:'/',expiry:-1,httpOnly:false,secure:true,sameSite:'Lax'}]);}
+ finally{for(const [name,value] of Object.entries(previous))if(value===undefined)delete globalThis[name];else globalThis[name]=value;}
+});
+
 test('session-only profile import preserves newer native local and cache storage',async()=>{
  const source=await readFile(new URL('../rust/profile-import.js',import.meta.url),'utf8'),local=new Map([['token','native']]),deleted=[];
  const previous={caches:globalThis.caches,localStorage:globalThis.localStorage,sessionStorage:globalThis.sessionStorage,indexedDB:globalThis.indexedDB};

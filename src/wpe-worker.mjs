@@ -17,7 +17,8 @@ import {beginNavigationWithWait,createNavigatedEngine} from './engine-start.mjs'
 import {keyEvents} from './key-events.mjs';
 import {isFatalEngineFailure} from './engine-failure.mjs';
 import {commandEpoch,fencedLookup} from './control-command.mjs';
-import {applyPortableProfile} from './profile-restore.mjs';
+import {applyPortableProfile,replayPortableCache} from './profile-restore.mjs';
+import {nextProfileExpiry,profileStateExpired} from './profile-retention.mjs';
 
 const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(url,options={})=>fetch(url,{...options,signal:AbortSignal.timeout(15000)})}});
 const worker=process.env.WORKER_ID||'deeptensor-wpe-01',driverURLs=(process.env.WPE_WEBDRIVER_URLS||'http://127.0.0.1:9515,http://127.0.0.1:9516').split(',').map(value=>value.trim()).filter(Boolean),captureURLs=(process.env.WPE_CAPTURE_URLS||'http://127.0.0.1:9615,http://127.0.0.1:9616').split(',').map(value=>value.trim()).filter(Boolean),capacity=Math.min(Number(process.env.WORKER_CAPACITY||2),driverURLs.length,captureURLs.length);
@@ -32,6 +33,7 @@ const rpc=(name,parameters)=>query(db.rpc(name,parameters));
 const missingObject=error=>/not found|does not exist|404/i.test(`${error?.message||''} ${error?.statusCode||''}`);
 async function downloadProfileObject(object){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).download(object);if(!result.error||missingObject(result.error))return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
 async function uploadProfileObject(object,bundle){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).upload(object,bundle,{contentType:'application/octet-stream',upsert:true});if(!result.error)return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
+async function removeProfileObject(object){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).remove([object]);if(!result.error||missingObject(result.error))return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
 const ticketSecret=process.env.DATA_PLANE_TICKET_SECRET||process.env.VAULT_ENCRYPTION_KEY;
 if(!ticketSecret||ticketSecret.length<32)throw Error('The data-plane ticket secret must contain at least 32 characters');
 const dataPlane=createDirectServer({active,worker,secret:ticketSecret});
@@ -40,7 +42,13 @@ const stopTunnel=startQuickTunnel(url=>{directURL=url;void db.from('workers').up
 const profileObject=row=>`${row.user_id}/${row.profile_id}.bundle`;
 async function loadProfile(row){
  if(!row.profile_id)return null;
- const profile=await query(db.from('browser_profiles').select('encrypted_state').eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());
+ const profile=await query(db.from('browser_profiles').select('encrypted_state,state_expires_at').eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());
+ if(profileStateExpired(profile.state_expires_at)){
+  const removed=await removeProfileObject(profileObject(row));
+  if(removed.error&&!missingObject(removed.error))throw Error('Expired profile state could not be removed');
+  await query(db.from('browser_profiles').update({encrypted_state:null,state_expires_at:null,updated_at:new Date().toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));
+  return normalizeProfileState();
+ }
  const fallback=profile.encrypted_state?normalizeProfileState(unseal(profile.encrypted_state,row.user_id)):normalizeProfileState(),download=await downloadProfileObject(profileObject(row));
  if(download.error){if(!missingObject(download.error))throw Error('Profile storage is temporarily unavailable');return fallback;}
  return normalizeProfileState(decodeProfileState(Buffer.from(await download.data.arrayBuffer()),row.user_id,row.profile_id));
@@ -48,7 +56,7 @@ async function loadProfile(row){
 async function captureProfile(engine,state,revision){
  if(!state)return state;const url=await engine.url();if(!['http:','https:'].includes(new URL(url).protocol))return state;return mergeWpeState(state,url,await engine.exportState(),revision);
 }
-async function persistProfile(row,state){if(!row.profile_id||!state)return;const bundle=encodeProfileState(state,row.user_id,row.profile_id),uploaded=await uploadProfileObject(profileObject(row),bundle);if(uploaded.error)throw Error('Profile storage is temporarily unavailable');const summary={nativeRevision:state.nativeRevision,cookieRevision:state.cookieRevision,cookies:state.cookies,cookieDeletions:state.cookieDeletions||[],origins:state.origins.map(origin=>({origin:origin.origin,revision:origin.revision,localStorage:origin.localStorage||[]}))};await query(db.from('browser_profiles').update({encrypted_state:seal(summary,row.user_id),updated_at:new Date().toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));}
+async function persistProfile(row,state){if(!row.profile_id||!state)return;const bundle=encodeProfileState(state,row.user_id,row.profile_id),uploaded=await uploadProfileObject(profileObject(row),bundle);if(uploaded.error)throw Error('Profile storage is temporarily unavailable');const summary={nativeRevision:state.nativeRevision,cookieRevision:state.cookieRevision,cookies:state.cookies,cookieDeletions:state.cookieDeletions||[],origins:state.origins.map(origin=>({origin:origin.origin,revision:origin.revision,localStorage:origin.localStorage||[]}))},now=Date.now();await query(db.from('browser_profiles').update({encrypted_state:seal(summary,row.user_id),state_expires_at:nextProfileExpiry(now),updated_at:new Date(now).toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));}
 async function openStream(row,control){
  return {control};
 }
@@ -160,7 +168,7 @@ async function flushActions(control){
  try{await query(db.from('session_actions').insert(batch));}catch{if(control.actions.length<900)control.actions.unshift(...batch);}finally{control.flushing=false;}
 }
 async function runSession(row){
- let driverURL=freeDrivers.shift();const engineQueue=createSerialExecutor();let profileRestoreTracker={origins:new Set(),deletions:new Set()},engine,proxy,stream,profileState,profileRevision=1,startupHeartbeatTimer,deadlineTimer,hardAbortTimer,deadlineCapture,leaseTimer,downloadLoop,commandPoll=null,profileOriginRestore=null,profileOriginFailure=null,driverReusable=true,lastPreview=0,lastVisualProbe=0,lastVisualState='',lastSemantic=0,lastSemanticInstall=0,lastPreviewHash='',lastPreviewState='',lastHeartbeat=0,lastLeaseWarning=0,lastCommandPoll=0,lastActionFlush=0,lastMetadataAt=0,lastMetadataState='',lastTabProbe=0,metadataInFlight=false,metadataWrite=Promise.resolve(),terminal='completed',failure=null,started=0,leaseDeadline=Date.now()+60000;const control={row,stop:false,expired:false,wake:null,forceFrame:row.preview_mode==='visual',frameFeedbackUntil:0,pixelActive:row.preview_mode==='visual',semanticInstalled:false,semanticGeneration:0,semanticBacklog:[],semanticControls:[],semanticControlBytes:0,semanticPriming:false,clients:new Set(),actions:[],flushing:false,applyInput:null,navigate:null,switchTab:null,newTab:null,closeTab:null,probeTabs:null,tabs:[],activeTab:null,releaseInput:null,inputPriority:false,inputPriorityTimer:null,controlEpoch:0};active.set(row.id,control);
+ let driverURL=freeDrivers.shift();const engineQueue=createSerialExecutor();let profileRestoreTracker={origins:new Set(),deletions:new Set()},engine,proxy,stream,profileState,profileRevision=1,startupHeartbeatTimer,deadlineTimer,hardAbortTimer,deadlineCapture,leaseTimer,downloadLoop,commandPoll=null,profileOriginRestore=null,profileOriginFailure=null,driverReusable=true,lastPreview=0,lastVisualProbe=0,lastVisualState='',lastSemantic=0,lastSemanticInstall=0,lastPreviewHash='',lastPreviewState='',lastHeartbeat=0,lastLeaseWarning=0,lastCommandPoll=0,lastActionFlush=0,lastMetadataAt=0,lastMetadataState='',lastTabProbe=0,metadataInFlight=false,metadataWrite=Promise.resolve(),terminal='completed',failure=null,started=0,leaseDeadline=Date.now()+60000;const control={row,stop:false,expired:false,wake:null,forceFrame:row.preview_mode==='visual',frameFeedbackUntil:0,pixelActive:row.preview_mode==='visual',semanticInstalled:false,semanticGeneration:0,semanticBacklog:[],semanticControls:[],semanticControlBytes:0,semanticPriming:false,clients:new Set(),actions:[],flushing:false,applyInput:null,navigate:null,switchTab:null,newTab:null,closeTab:null,probeTabs:null,tabs:[],activeTab:null,virtualTabs:false,virtualTabSequence:0,releaseInput:null,inputPriority:false,inputPriorityTimer:null,controlEpoch:0};active.set(row.id,control);
  // Browser creation and the first navigation happen while the row remains in
  // `starting`. Keep that state alive without beginning billable runtime or
  // exposing a preview ticket before the selected renderer is actually ready.
@@ -182,7 +190,7 @@ async function runSession(row){
  const launchEngine=async()=>{
   const candidateOrigins=new WeakMap();
   const candidate=await createNavigatedEngine({
-  create:()=>createEngine(proxy.url,driverURL,'none'),
+  create:()=>createEngine(proxy?.url||null,driverURL,'none'),
   prepare:async(candidate,target,context)=>{
    // Apply portable corrections before the target page runs. In particular,
    // a page that rotates an auth cookie during its first load must never have
@@ -192,6 +200,7 @@ async function runSession(row){
   },
   navigate:(candidate,target,context)=>beginNavigationWithWait(candidate,target,{timeoutMs:Math.min(45000,context.remainingMs),pause:sleep}),target:row.url,attempts:6,timeoutMs:65000,pause:sleep
   });
+  await replayPortableCache(candidate,profileState,row.url);
   profileRestoreTracker=candidateOrigins.get(candidate)||{origins:new Set(),deletions:new Set()};
   return candidate;
  };
@@ -255,10 +264,18 @@ async function runSession(row){
   if(force||changed)await realtimeSend(stream,'tabs',{tabs:control.tabs,active_tab:current});
   return control.tabs;
  };
+ const syncVirtualTabs=async({force=false}={})=>{
+  const [titleValue,urlValue]=await Promise.all([engine.title().catch(()=>''),engine.url().catch(()=>'about:blank')]),title=String(titleValue||'').slice(0,200),url=String(urlValue||'about:blank');
+  control.tabs=control.tabs.map((tab,index)=>tab.handle===control.activeTab?{...tab,title:title||`Tab ${index+1}`,url,active:true}:{...tab,active:false});
+  const serialized=JSON.stringify(control.tabs),changed=serialized!==control.tabsSerialized;control.tabsSerialized=serialized;recordMetadata(title,url);
+  if(force||changed)await realtimeSend(stream,'tabs',{tabs:control.tabs,active_tab:control.activeTab});
+  return control.tabs;
+ };
+ const syncTabs=options=>control.virtualTabs?syncVirtualTabs(options):syncTabsEngine(options);
  try{
-	  if(!driverURL)throw Error('No WPE driver slot is available');const destination=webURL(row.url);await resolvePublic(destination.hostname);let upstream=null;if(row.proxy_id){const configured=await query(db.from('proxy_servers').select('encrypted_url,enabled').eq('id',row.proxy_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());if(!configured.enabled)throw Error('Configured proxy is disabled');upstream=unseal(configured.encrypted_url,row.user_id);}proxy=await startProxy(upstream);profileState=await loadProfile(row);profileRevision=Math.max(profileState?.cookieRevision||0,...(profileState?.origins||[]).map(origin=>origin.revision||0))+1;stream=await openStream(row,control);
+  if(!driverURL)throw Error('No WPE driver slot is available');const destination=webURL(row.url);await resolvePublic(destination.hostname);if(row.proxy_id){const configured=await query(db.from('proxy_servers').select('encrypted_url,enabled').eq('id',row.proxy_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());if(!configured.enabled)throw Error('Configured proxy is disabled');proxy=await startProxy(unseal(configured.encrypted_url,row.user_id));}profileState=await loadProfile(row);profileRevision=Math.max(profileState?.cookieRevision||0,...(profileState?.origins||[]).map(origin=>origin.revision||0))+1;stream=await openStream(row,control);
   if(downloadsEnabled){
-   try{const runtime=await startDownloadRuntime({session:row,worker,rpc,engineFactory:()=>new WpeClient(null,driverURL,captureURLs[driverURLs.indexOf(driverURL)]),proxy:proxy.url,profileDir:null});engine=runtime.engine;downloadLoop=new DownloadLoop(runtime,{renewLease,onError:()=>console.error('WPE download publication deferred',row.id)});}
+   try{const runtime=await startDownloadRuntime({session:row,worker,rpc,engineFactory:()=>new WpeClient(null,driverURL,captureURLs[driverURLs.indexOf(driverURL)]),proxy:proxy?.url||null,profileDir:null});engine=runtime.engine;downloadLoop=new DownloadLoop(runtime,{renewLease,onError:()=>console.error('WPE download publication deferred',row.id)});}
    catch(error){driverReusable=error.driverReusable===true;throw error;}
 	  }else try{engine=await launchEngine();await applyPortableProfile(engine,profileState,profileRestoreTracker,null,{pause:sleep});if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}catch(error){
 	   if(error.driverRestartRequired&&freeDrivers.length){
@@ -278,12 +295,12 @@ async function runSession(row){
   // title/redirect metadata is refreshed only while nobody is viewing.
   lastMetadataAt=Date.now();
   const requireActive=expectedEpoch=>{if(control.expired||control.stop||Date.now()-started>=row.max_seconds*1000)throw Error('Browser session has ended');if(Number.isSafeInteger(expectedEpoch)&&expectedEpoch!==control.controlEpoch)throw Error('Stale browser control ticket');};
-  control.probeTabs=()=>{if(control.tabProbePending)return control.tabProbePending;control.tabProbePending=engineTask(()=>syncTabsEngine({activateNew:true})).catch(error=>{if(isFatalEngineFailure(error)){driverReusable=false;control.stop=true;}else console.error('WPE tab discovery deferred',row.id,String(error.message).slice(0,120));}).finally(()=>{control.tabProbePending=null;});return control.tabProbePending;};
+  control.probeTabs=()=>{if(control.tabProbePending)return control.tabProbePending;control.tabProbePending=engineTask(()=>syncTabs({activateNew:true})).catch(error=>{if(isFatalEngineFailure(error)){driverReusable=false;control.stop=true;}else console.error('WPE tab discovery deferred',row.id,String(error.message).slice(0,120));}).finally(()=>{control.tabProbePending=null;});return control.tabProbePending;};
   control.applyInput=async(events,expectedEpoch)=>{requireActive(expectedEpoch);const result=await engineTask(()=>{requireActive(expectedEpoch);return engine.input(events);});if(events.some(event=>event?.type==='pointer'&&event.phase==='up'))void control.probeTabs();return result;};
-	  control.navigate=async(value,expectedEpoch)=>{requireActive(expectedEpoch);await engineTask(async()=>{requireActive(expectedEpoch);const url=webURL(value);await resolvePublic(url.hostname);try{profileState=await captureProfile(engine,profileState,profileRevision);}catch{console.error('WPE portable profile capture deferred',row.id);}await prepareProfileOrigin(engine,url.href,profileRestoreTracker);await resetTabPreview('navigate');const navigated=await beginNavigationWithWait(engine,url.href,{timeoutMs:45000,pause:sleep});recordMetadata(control.row.title,navigated.url,true);if(row.preview_mode==='semantic'){await installSemantic(engine,stream,control);await primeSemantic(engine,control);}else{control.forceFrame=true;control.frameFeedbackUntil=Date.now()+1600;}await syncTabsEngine({force:true,resetOnChange:false});});if(!streamCanPush(stream))void refreshMetadata(true).catch(()=>{});};
-	  control.switchTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const handles=await engine.windowHandles();if(!Array.isArray(handles)||!handles.includes(handle))throw Error('Browser tab is no longer open');if(handle!==control.activeTab){await engine.release().catch(()=>{});await engine.switchWindow(handle);control.activeTab=handle;await resetTabPreview('tab-switch');}return syncTabsEngine({force:true});});};
-	  control.newTab=expectedEpoch=>{requireActive(expectedEpoch);return engineTask(async()=>{requireActive(expectedEpoch);await resolvePublic('duckduckgo.com');const created=await engine.newWindow('tab'),handle=created?.handle;if(!validTabHandle(handle))throw Error('Browser did not create a tab');await engine.switchWindow(handle);control.activeTab=handle;await beginNavigationWithWait(engine,'https://duckduckgo.com/',{timeoutMs:45000,pause:sleep});await resetTabPreview('tab-new');return syncTabsEngine({force:true});});};
-	  control.closeTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const handles=await engine.windowHandles();if(!Array.isArray(handles)||!handles.includes(handle))throw Error('Browser tab is no longer open');if(handles.length<=1)throw Error('The last browser tab cannot be closed');const current=await engine.currentWindow();if(current!==handle)await engine.switchWindow(handle);const remaining=await engine.closeWindow(),next=Array.isArray(remaining)&&remaining.includes(current)&&current!==handle?current:handles.filter(value=>value!==handle).at(-1);if(!validTabHandle(next))throw Error('Browser tab close did not leave an active tab');await engine.switchWindow(next);control.activeTab=next;await resetTabPreview('tab-close');return syncTabsEngine({force:true});});};
+	  control.navigate=async(value,expectedEpoch)=>{requireActive(expectedEpoch);await engineTask(async()=>{requireActive(expectedEpoch);const url=webURL(value);await resolvePublic(url.hostname);try{profileState=await captureProfile(engine,profileState,profileRevision);}catch{console.error('WPE portable profile capture deferred',row.id);}await prepareProfileOrigin(engine,url.href,profileRestoreTracker);await resetTabPreview('navigate');const navigated=await beginNavigationWithWait(engine,url.href,{timeoutMs:45000,pause:sleep});recordMetadata(control.row.title,navigated.url,true);if(row.preview_mode==='semantic'){await installSemantic(engine,stream,control);await primeSemantic(engine,control);}else{control.forceFrame=true;control.frameFeedbackUntil=Date.now()+1600;}await syncTabs({force:true,resetOnChange:false});});if(!streamCanPush(stream))void refreshMetadata(true).catch(()=>{});};
+	  control.switchTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const target=control.tabs.find(tab=>tab.handle===handle);if(!target)throw Error('Browser tab is no longer open');if(handle!==control.activeTab){await syncVirtualTabs();control.virtualTabs=true;control.activeTab=handle;await resetTabPreview('tab-switch');await beginNavigationWithWait(engine,target.url||'https://duckduckgo.com/',{timeoutMs:45000,pause:sleep});}return syncVirtualTabs({force:true});});};
+	  control.newTab=expectedEpoch=>{requireActive(expectedEpoch);return engineTask(async()=>{requireActive(expectedEpoch);await resolvePublic('duckduckgo.com');await syncVirtualTabs();control.virtualTabs=true;const handle=`virtual-${row.id.slice(0,8)}-${++control.virtualTabSequence}`;control.tabs.push({handle,title:'New tab',url:'https://duckduckgo.com/',active:true});control.activeTab=handle;await resetTabPreview('tab-new');await beginNavigationWithWait(engine,'https://duckduckgo.com/',{timeoutMs:45000,pause:sleep});return syncVirtualTabs({force:true});});};
+	  control.closeTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const target=control.tabs.find(tab=>tab.handle===handle);if(!target)throw Error('Browser tab is no longer open');if(control.tabs.length<=1)throw Error('The last browser tab cannot be closed');await syncVirtualTabs();control.virtualTabs=true;const wasActive=handle===control.activeTab;control.tabs=control.tabs.filter(tab=>tab.handle!==handle);if(wasActive){const next=control.tabs.at(-1);control.activeTab=next.handle;await resetTabPreview('tab-close');await beginNavigationWithWait(engine,next.url||'https://duckduckgo.com/',{timeoutMs:45000,pause:sleep});}else await resetTabPreview('tab-close');return syncVirtualTabs({force:true});});};
 	  await engineTask(()=>syncTabsEngine({force:true,resetOnChange:false}));
 	  const processQueuedCommand=async()=>{
 	   let command=null;try{[command]=await rpc('claim_command',{p_session:row.id});}catch(error){if(Date.now()>leaseDeadline)throw Error('Database lease lost',{cause:error});return;}
@@ -356,17 +373,16 @@ async function runSession(row){
    if(!control.stop&&!control.inputPriority&&control.pixelActive&&streamCanPush(stream)&&(control.forceFrame||frameFeedbackPending||!lastPreviewHash||Date.now()-lastVisualProbe>250)){
     const forceFrame=control.forceFrame;if(forceFrame)control.forceFrame=false;
     try{
-     // Input feedback reads pixels directly from the compositor, outside the
-     // WebDriver queue. This keeps mouse/keyboard ACKs independent from PNG
-     // capture while still probing DOM revisions during normal observation.
-     const feedbackCapture=(forceFrame||frameFeedbackPending)&&Boolean(lastPreviewHash),visual=feedbackCapture?{title:control.row.title,url:control.row.url}:await engineTask(()=>engine.visualState()),visualKey=feedbackCapture?lastVisualState:`${visual.url||''}\n${Number(visual.timeOrigin)||0}\n${Number(visual.revision)||0}`;
+     // WPE execute-script commands can remain blocked while a remote document
+     // is loading. Keep Visual entirely on the independent compositor path;
+     // the frame hash suppresses unchanged network frames without putting
+     // screenshot or DOM probes in front of direct input acknowledgements.
+     const visual={title:control.row.title,url:control.row.url};
      lastVisualProbe=Date.now();
-     if(forceFrame||frameFeedbackPending||!lastPreviewHash||visualKey!==lastVisualState){
-      const preview=await publish(engine,stream,lastPreviewHash,lastPreviewState,forceFrame,streamCanPush(stream),visual);
-      if(preview.delivered){lastPreviewHash=preview.hash;lastPreviewState=preview.state;recordMetadata(preview.title,preview.url);queueProfileOriginRestore(preview.url);if(preview.changed){control.frameFeedbackUntil=0;if(!feedbackCapture){const settled=await engineTask(()=>engine.visualState());lastVisualState=`${settled.url||''}\n${Number(settled.timeOrigin)||0}\n${Number(settled.revision)||0}`;}}else if(!frameFeedbackPending)lastVisualState=visualKey;}
-      else if(forceFrame)control.forceFrame=true;
-      lastPreview=Date.now();
-     }else lastVisualState=visualKey;
+     const preview=await publish(engine,stream,lastPreviewHash,lastPreviewState,forceFrame,streamCanPush(stream),visual);
+     if(preview.delivered){lastPreviewHash=preview.hash;lastPreviewState=preview.state;recordMetadata(preview.title,preview.url);queueProfileOriginRestore(preview.url);}
+     else if(forceFrame)control.forceFrame=true;
+     lastPreview=Date.now();
     }
     catch(error){if(isFatalEngineFailure(error)){driverReusable=false;throw error;}control.forceFrame=true;lastPreview=Date.now()+875;console.error('WPE visual preview retry',row.id,String(error.message).slice(0,120));}
    }
@@ -395,7 +411,7 @@ process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=tru
 let heartbeatInFlight=false;
 const heartbeatWorker=async()=>{
  if(heartbeatInFlight)return;heartbeatInFlight=true;
- try{await query(db.from('workers').upsert({id:worker,heartbeat_at:new Date().toISOString(),capacity:draining&&drainAcknowledged?0:capacity,active_sessions:active.size,version:'0.5.75-style-settled',direct_url:directURL,direct_updated_at:directURL?new Date().toISOString():null}));}
+ try{await query(db.from('workers').upsert({id:worker,heartbeat_at:new Date().toISOString(),capacity:draining&&drainAcknowledged?0:capacity,active_sessions:active.size,version:'0.5.92-profile-control',direct_url:directURL,direct_updated_at:directURL?new Date().toISOString():null}));}
  catch{console.error('WPE worker heartbeat failed');}
  finally{heartbeatInFlight=false;}
 };

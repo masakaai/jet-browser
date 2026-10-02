@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {applyPortableProfile} from '../src/profile-restore.mjs';
+import {applyPortableProfile,replayPortableCache} from '../src/profile-restore.mjs';
 
 test('cache state is never replayed after the saved origin redirects elsewhere',async()=>{
  const imported=[];
@@ -19,4 +19,10 @@ test('every portable import is fenced to the saved origin inside the browser',as
  await applyPortableProfile(engine,state,{origins:new Set(),deletions:new Set()},null,{navigate:async()=>({url:'https://saved.example/home'})});
  assert.equal(imported.length,2);
  assert.deepEqual(imported.map(item=>item.expectedOrigin),['https://saved.example','https://saved.example']);
+});
+
+test('final navigation can replay only the saved cache without navigating again',async()=>{
+ const imported=[];const engine={url:async()=> 'https://saved.example/home',importState:async(value,expectedOrigin)=>imported.push({value,expectedOrigin})};
+ const state={cookies:[{name:'sid'}],origins:[{origin:'https://saved.example',localStorage:[{name:'token',value:'keep'}],cacheStorage:[{name:'offline',entries:[]}]}]};
+ assert.equal(await replayPortableCache(engine,state,'https://saved.example/home'),true);assert.equal(imported.length,1);assert.deepEqual(imported[0],{value:{cookies:[],local_storage:[],session_storage:[],indexed_db:[],cache_storage:[{name:'offline',entries:[]}],restore:{cookies:false,local_storage:false,session_storage:false,indexed_db:false,cache_storage:true}},expectedOrigin:'https://saved.example'});
 });

@@ -3,7 +3,7 @@ import { drainedReadyToStop, planCapacity } from "../src/autoscale-plan.mjs";
 
 const prefix = process.env.MASAKA_AUTOSCALE_PREFIX || "masaka-jet-browser-wpe-auto-";
 const workerPrefix = process.env.MASAKA_WORKER_PREFIX || "deeptensor-wpe-";
-const image = process.env.MASAKA_WORKER_IMAGE || "masaka-jet-browser-wpe:0.5.82";
+const image = process.env.MASAKA_WORKER_IMAGE || "masaka-jet-browser-wpe:0.5.92";
 const envFile = process.env.MASAKA_WORKER_ENV || "/data0/deeptensor_engineers/lvbo/masaka/worker.env";
 const seccomp = process.env.MASAKA_SECCOMP_PROFILE || "/data0/deeptensor_engineers/lvbo/masaka/jet-browser/seccomp_profile.json";
 const pollMs = Math.max(1000, Number(process.env.MASAKA_AUTOSCALE_POLL_MS) || 2500);
