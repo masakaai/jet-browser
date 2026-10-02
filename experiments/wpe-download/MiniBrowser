@@ -1,0 +1,11 @@
+#!/bin/sh
+# Only installed in the named isolated test container; not the production image.
+umask 027
+case "${1-}" in
+  --masaka-download-token=*)
+    MASAKA_DOWNLOAD_TOKEN=${1#--masaka-download-token=}
+    export MASAKA_DOWNLOAD_TOKEN
+    shift
+    ;;
+esac
+LD_PRELOAD=/opt/masaka-download-hook.so exec /usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser.masaka-download-original "$@"

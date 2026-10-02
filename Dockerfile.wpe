@@ -1,0 +1,25 @@
+FROM rust:bookworm AS build
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY rust ./rust
+COPY experiments/wpe-sync/supervisor.rs ./supervisor.rs
+RUN cargo build --release --locked && cargo test --release --locked && rustc -O supervisor.rs -o masaka-wpe-supervisor
+
+# WPE 2.54 includes the stable WPEPlatform API and current input fixes.
+# Control-plane credentials remain outside this browser container.
+FROM debian:sid
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wpewebkit-webdriver weston dbus-x11 libgl1-mesa-dri ca-certificates \
+    curl gstreamer1.0-plugins-base && \
+    useradd --create-home --uid 1000 browser && \
+    chmod -R a+rX /usr/share/glib-2.0 && \
+    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends libwpebackend-fdo-1.0-1 && \
+    rm -rf /var/lib/apt/lists/*
+COPY --from=build /build/target/release/jet-wpe /usr/local/bin/jet-wpe
+COPY --from=build /build/masaka-wpe-supervisor /usr/local/bin/masaka-wpe-spike
+COPY experiments/wpe-sync/entrypoint.sh /opt/entrypoint.sh
+RUN chmod 755 /opt /opt/entrypoint.sh /usr/local/bin/jet-wpe /usr/local/bin/masaka-wpe-spike
+ENV XDG_RUNTIME_DIR=/tmp/wpe-runtime WAYLAND_DISPLAY=wayland-0 LIBGL_ALWAYS_SOFTWARE=1
+ENTRYPOINT ["/opt/entrypoint.sh"]

@@ -2,16 +2,15 @@
 
 MASAKA browser runtime, deployed on the owner's `deeptensor` SSH host. This repository is separate from the `backend` control plane and `masaka-browser` frontend.
 
-## Implemented
+## Runtime
 
-- Sandboxed Chromium, separate browser processes and temporary contexts per session, two concurrent sessions per worker.
-- Outbound Supabase work queue; no public CDP port or Docker socket exposed.
-- Private JPEG previews, navigation, clicks, text, key presses, scroll, exact-hostname HTTPS credential filling.
-- AES-256-GCM encrypted profile persistence (cookies, local storage and IndexedDB), scoped to account identity.
-- DNS-validated, IP-pinned HTTP CONNECT proxy; blocks private, loopback, link-local and reserved destinations. Chromium uses proxy even for loopback, with non-proxied WebRTC/QUIC disabled.
-- Session deadlines with a bounded five-second shutdown grace for profile persistence, lease/heartbeat handling, graceful stop, server-side settlement. Billing never exceeds the reserved session duration.
-
-This first runtime uses Node.js + Playwright/Chromium. It is not a Rust/WPE engine, a public CDP/WebDriver endpoint, a sub-30ms startup system, or per-session VM isolation. Those need separate engine/runtime work. Preview is refreshed JPEG, not video/WebRTC. Popup windows and downloads are currently disabled. Chromium profiles do not persist sessionStorage, OS keychains, or every browser-managed credential.
+- WPE WebKit 2.54 with a Rust WebDriver bridge and two independent Weston/WPE driver slots.
+- Session-scoped direct WSS data plane: preview and input travel between the client and assigned worker without Vercel, Supabase Realtime or Postgres in the hot path.
+- Preview mode is fixed before launch: Live DOM sends DOM/CSSOM snapshots and mutations, while Visual sends changed PNG frames. Frames are never uploaded to object storage or written to Postgres.
+- Pointer, keyboard, touch, wheel, navigation, snapshot and exact-hostname credential actions share the same ordered command path.
+- Owner-bound encrypted browser-profile bundles persist cookies, local/session storage, IndexedDB records and CacheStorage in private Storage; a small interoperable cookie/local-storage summary remains encrypted in Postgres.
+- DNS/IP-validated HTTP CONNECT proxying blocks loopback, link-local, private and reserved destinations.
+- Lease heartbeats, bounded sessions, graceful shutdown and server-side settlement keep runtime and per-second billing state consistent.
 
 ## Run
 
@@ -20,28 +19,30 @@ Use the shared local `/Users/asklv/Projects/socai/docs/work/20260930/masaka.env`
 ```sh
 npm ci
 npm test
-docker build -t masaka-jet-browser:0.1.7 .
-docker run -d --name masaka-jet-browser --restart unless-stopped --init \
+docker build -f Dockerfile.wpe-worker -t masaka-jet-browser-wpe:0.5.82 .
+docker run -d --name masaka-jet-browser-wpe --restart unless-stopped --init \
   --shm-size=1g --memory=4g --cpus=2 --pids-limit=512 \
   --dns=1.1.1.1 --dns=1.0.0.1 \
   --security-opt no-new-privileges \
   --security-opt seccomp=./seccomp_profile.json \
-  --env-file ../worker.env masaka-jet-browser:0.1.7
+  --security-opt systempaths=unconfined \
+  --env-file ../worker.env -e WORKER_ID=deeptensor-wpe-01 -e WORKER_CAPACITY=1 \
+  masaka-jet-browser-wpe:0.5.82
 ```
 
 Remote directory: `/data0/deeptensor_engineers/lvbo/masaka/jet-browser`.
-Container: `masaka-jet-browser`. No host ports published. The entrypoint corrects container-local inherited ACL permissions, then drops to `pwuser`. Browser subprocesses receive a minimal environment without service keys. `seccomp_profile.json` is the upstream Playwright v1.63.0 profile, default-deny with namespace support: https://github.com/microsoft/playwright/blob/v1.63.0/utils/docker/seccomp_profile.json .
+Container: `masaka-jet-browser-wpe`. No host ports are published. The entrypoint starts each browser slot with a separate runtime directory and Wayland socket, then runs the control-plane worker as a different unprivileged user. Browser processes receive a minimal environment without service keys.
 
 ## SDK
 
 ```js
-import { JetBrowser } from './sdk/client.mjs';
-const client = new JetBrowser({apiKey: process.env.MASAKA_API_KEY});
+import { MasakaBrowser } from './sdk/client.mjs';
+const client = new MasakaBrowser({apiKey: process.env.MASAKA_API_KEY});
 const session = await client.create({url:'https://example.com', maxSeconds:300});
 try {
   await client.waitForReady(session.id);
   await client.click(session.id, 320, 200);
-  const current = await client.get(session.id); // preview_url is short-lived
+  const current = await client.get(session.id); // preview_mode is fixed for this runtime
 } finally {
   await client.stop(session.id);
 }
@@ -49,12 +50,27 @@ try {
 
 No browser keys or shared runtime secrets should be bundled into a mobile/web client. Use the authenticated backend for those clients.
 
-## WPE and synchronization experiment
+For a signed-in web or mobile UI, `sdk/browser.mjs` accepts the user's short-lived
+Supabase access token and project ID. It supports launch/stop, direct Live DOM or
+Visual preview, human-control handoff, pointer/touch/keyboard/wheel input, downloads
+and clean release back to the agent. The backend exchanges the access token for a
+short-lived, session-bound worker ticket; the service-role key never reaches the client.
 
-`experiments/wpe-sync/` is isolated from production. It contains a Rust process supervisor, a Debian WPE WebDriver image, a same-host cold-profile-copy check, a Chrome-to-WPE bidirectional synthetic state check, and three-way merge tests. It does not migrate the user's real browser credentials or expose a public CDP endpoint. The current production worker remains unchanged.
+```js
+import {MasakaBrowserClient} from './sdk/browser.mjs';
+const browser = new MasakaBrowserClient({
+  accessToken: session.access_token,
+  projectId
+});
+const running = await browser.waitForReady((await browser.create({previewMode:'visual'})).id);
+const preview = await browser.preview(running.id, {onFrame: png => draw(png)});
+await browser.takeControl(running.id);
+await browser.touch(running.id, {phase:'down', x:320, y:240});
+await browser.touch(running.id, {phase:'up', x:320, y:240});
+await browser.releaseControl(running.id);
+await preview.close();
+```
 
-The WPE image needs `libwpebackend-fdo`, accessibility libraries and GStreamer base plugins in addition to the packaged driver. MiniBrowser is at `/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser`; the experiment uses `wpe:browserOptions` with both `--headless` and `--automation` (custom args replace defaults). Remote container name is `masaka-wpe-sync-spike`. Its limits are 2 CPU / 2 GiB, with no published ports or production credentials.
+## Synchronization checks
 
-Executed checks passed for Chrome ↔ WPE synthetic HttpOnly/Secure/SameSite cookies, localStorage, a tab's sessionStorage, and a JSON IndexedDB record. With the shared env loaded, the check also transfers a dedicated test account's bearer token both ways and verifies authenticated API calls, then signs out only that test-created session. This is a bounded proof, not all-credential synchronization or third-party login compatibility.
-
-Run with the experiment's separate `seccomp.json`, `--security-opt no-new-privileges`, and `--security-opt systempaths=unconfined` for nested bubblewrap namespaces. These relaxed container path rules are **experiment-only**, not production security approval. WPE sandboxing is not disabled. Inspect the dated local verification report before interpreting experimental results as product capabilities.
+`experiments/wpe-sync/` contains the repeatable Chrome ↔ WPE state-transfer benchmarks and the WPE supervisor used by the production image. The checks cover bidirectional cookie/local-storage changes, deletion, conflicting token rotation, reconnect behavior and encrypted profile bundles.

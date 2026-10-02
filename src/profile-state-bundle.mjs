@@ -1,0 +1,8 @@
+import {createCipheriv,createDecipheriv,randomBytes} from 'node:crypto';
+import {gzipSync,gunzipSync} from 'node:zlib';
+
+const magic=Buffer.from('MSKPS1'),maxPlain=40*1024*1024,maxBundle=48*1024*1024;
+const key=()=>{const value=Buffer.from(process.env.VAULT_ENCRYPTION_KEY||'','hex');if(value.length!==32)throw Error('VAULT_ENCRYPTION_KEY must be 32 bytes');return value;};
+const binding=(user,profile)=>{if(!/^[0-9a-f-]{36}$/i.test(user)||!/^[0-9a-f-]{36}$/i.test(profile))throw Error('Invalid profile identity');return Buffer.from(`profile-state:${user}:${profile}`);};
+export function encodeProfileState(state,user,profile){const plain=Buffer.from(JSON.stringify(state));if(plain.length>maxPlain)throw Error('Profile state is too large');const compressed=gzipSync(plain,{level:6}),iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key(),iv);cipher.setAAD(binding(user,profile));const body=Buffer.concat([cipher.update(compressed),cipher.final()]),bundle=Buffer.concat([magic,iv,cipher.getAuthTag(),body]);if(bundle.length>maxBundle)throw Error('Profile bundle is too large');return bundle;}
+export function decodeProfileState(bundle,user,profile){if(!Buffer.isBuffer(bundle)||bundle.length<34||bundle.length>maxBundle||!bundle.subarray(0,6).equals(magic))throw Error('Invalid profile bundle');const iv=bundle.subarray(6,18),tag=bundle.subarray(18,34),body=bundle.subarray(34),decipher=createDecipheriv('aes-256-gcm',key(),iv);decipher.setAAD(binding(user,profile));decipher.setAuthTag(tag);const plain=gunzipSync(Buffer.concat([decipher.update(body),decipher.final()]),{maxOutputLength:maxPlain});return JSON.parse(plain.toString('utf8'));}

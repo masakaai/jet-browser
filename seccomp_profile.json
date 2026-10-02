@@ -826,6 +826,29 @@
 				]
 			},
 			"excludes": {}
+		},
+		{
+			"names": [
+				"mount",
+				"umount2",
+				"pivot_root",
+				"open_tree",
+				"move_mount",
+				"mount_setattr",
+				"fsopen",
+				"fsconfig",
+				"fsmount",
+				"fspick",
+				"openat2",
+				"clone3",
+				"close_range",
+				"faccessat2"
+			],
+			"action": "SCMP_ACT_ALLOW",
+			"args": [],
+			"comment": "Allow the WPE WebKit bubblewrap sandbox to construct its private mount namespace.",
+			"includes": {},
+			"excludes": {}
 		}
 	]
 }

@@ -1,0 +1,18 @@
+[Unit]
+Description=MASAKA WPE demand autoscaler
+After=network-online.target docker.service
+
+[Service]
+Type=simple
+EnvironmentFile=/data0/deeptensor_engineers/lvbo/masaka/worker.env
+Environment=MASAKA_WORKER_IMAGE=masaka-jet-browser-wpe:0.5.82
+Environment=WORKER_CAPACITY=1
+Environment=MASAKA_AUTOSCALE_MAX=5
+Environment=MASAKA_AUTOSCALE_POLL_MS=2500
+Environment=MASAKA_AUTOSCALE_IDLE_MS=300000
+ExecStart=/data0/deeptensor_engineers/lvbo/bin/node /data0/deeptensor_engineers/lvbo/masaka/jet-browser/scripts/autoscale-wpe.mjs
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

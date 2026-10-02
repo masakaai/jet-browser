@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import {chromium} from 'playwright';
 import {createClient} from '@supabase/supabase-js';
+import {coordinator} from './reconcile.mjs';
 const origin='https://masaka-ai.vercel.app',url=origin+'/browser-check.html';
 async function request(method,path,body){
  const args=['deeptensor','docker','exec','-i','masaka-wpe-sync-spike','curl','-sS','--max-time','35','-X',method,'-H','Content-Type:application/json'];
@@ -46,6 +47,30 @@ try{
  assert.deepEqual(await asyncLocal(page,idbRead,[]),updated);
  await wd('DELETE','/cookie/'+encodeURIComponent(cookie.name));await context.clearCookies({name:cookie.name});assert.equal((await context.cookies(origin)).filter(c=>c.name===cookie.name).length,0);
  console.log('PASS remote WPE -> Chrome: cookie rotation, localStorage, tab sessionStorage, IndexedDB update; explicit cookie deletion');
+ // Exercise reconciliation against two real engines, not in-memory adapters.
+ // Scope: two synthetic storage keys; cookies/IDB above remain explicit transfer tests.
+ const readScript='return Object.fromEntries([...["sync-probe"].flatMap(k=>localStorage.getItem(k)===null?[]:[[k,localStorage.getItem(k)]]),...["sync-tab"].flatMap(k=>sessionStorage.getItem(k)===null?[]:[[k,sessionStorage.getItem(k)]])]);';
+ const writeScript='const s=arguments[0];for(const [store,key] of [[localStorage,"sync-probe"],[sessionStorage,"sync-tab"]]){if(Object.hasOwn(s,key))store.setItem(key,s[key]);else store.removeItem(key);}return true;';
+ const local={read:()=>page.evaluate(s=>new Function(s)(),readScript),write:s=>page.evaluate(({code,s})=>new Function(code)(s),{code:writeScript,s})};
+ const remote={read:()=>wd('POST','/execute/sync',{script:readScript,args:[]}),write:s=>wd('POST','/execute/sync',{script:writeScript,args:[s]})};
+ const sync=coordinator(local,remote,await local.read());
+ await page.evaluate(()=>localStorage.setItem('sync-probe','auto-local'));
+ assert.equal((await sync()).status,'synced');assert.equal((await remote.read())['sync-probe'],'auto-local');
+ await wd('POST','/execute/sync',{script:'sessionStorage.setItem("sync-tab","auto-remote");localStorage.removeItem("sync-probe");return true;',args:[]});
+ assert.equal((await sync()).status,'synced');assert.deepEqual(await local.read(),{'sync-tab':'auto-remote'});
+ await page.evaluate(()=>sessionStorage.setItem('sync-tab','conflict-local'));
+ await wd('POST','/execute/sync',{script:'sessionStorage.setItem("sync-tab","conflict-remote");return true;',args:[]});
+ assert.deepEqual(await sync(),{status:'conflict',keys:['sync-tab']});
+ assert.equal((await local.read())['sync-tab'],'conflict-local');assert.equal((await remote.read())['sync-tab'],'conflict-remote');
+ // Explicit resolution in the disposable test; never silently choose a user's token.
+ await page.evaluate(()=>sessionStorage.setItem('sync-tab','conflict-remote'));await sync();
+ const readRemote=remote.read;remote.read=async()=>{throw Error('Injected transport outage')};
+ await page.evaluate(()=>localStorage.setItem('sync-probe','changed-offline'));
+ await assert.rejects(sync(),/Injected transport outage/);
+ assert.equal((await local.read())['sync-probe'],'changed-offline');
+ remote.read=readRemote;assert.equal((await sync()).status,'synced');
+ assert.deepEqual(await local.read(),await remote.read());
+ console.log('PASS real Chrome <-> deeptensor WPE reconciliation: allowlisted localStorage/sessionStorage updates, deletion, conflict preservation, recovery after injected transport failure. No continuous production sync claim.');
  if(process.env.TEST_ACCOUNT_EMAIL){
   const auth=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
   const {data,error}=await auth.auth.signInWithPassword({email:process.env.TEST_ACCOUNT_EMAIL,password:process.env.TEST_ACCOUNT_PASSWORD});if(error)throw error;

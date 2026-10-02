@@ -1,0 +1,12 @@
+FROM rust:bookworm AS harness-rust
+WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
+COPY rust ./rust
+RUN cargo test --release --locked && cargo build --release --locked
+
+# Candidate image: do not overwrite or redeploy the live worker before verification.
+FROM masaka-jet-browser-wpe:0.3.0
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk fonts-noto-color-emoji && fc-cache -f
+RUN chmod -R a+rX /usr/share/fonts /var/cache/fontconfig /etc/fonts
+COPY --from=harness-rust /build/target/release/jet-wpe /usr/local/bin/jet-wpe
+COPY src /app/src
