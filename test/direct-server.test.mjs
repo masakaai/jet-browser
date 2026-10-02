@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {acknowledgeSemantic,DIRECT_ACTION_TYPES,expectSemanticAcknowledgement,queueSemanticControl} from '../src/direct-server.mjs';
+import {readFileSync} from 'node:fs';
+import {acknowledgeSemantic,DIRECT_ACTION_TYPES,expectSemanticAcknowledgement,queueSemanticControl,requireFreshInputTicket} from '../src/direct-server.mjs';
 
 test('direct input protocol includes real browser tab lifecycle actions',()=>{
  assert.deepEqual([...DIRECT_ACTION_TYPES],['input','navigate','tab-switch','tab-new','tab-close']);
@@ -33,4 +34,12 @@ test('full DOM resync requests coalesce while a snapshot is generating or awaiti
  assert.equal(queueSemanticControl(control,'dash:dom-stream-start',{trigger:'fresh'}),true);
  assert.equal(queueSemanticControl(control,'dash:dom-stream-start',{trigger:'duplicate'}),false);
  assert.equal(control.semanticControls.length,1);
+});
+
+test('input expiry is rechecked after beginInput reaches the dispatch boundary',()=>{
+ const state={claims:{scope:'input',epoch:4,exp:100},control:{controlEpoch:4}};
+ assert.doesNotThrow(()=>requireFreshInputTicket(state,100));
+ assert.throws(()=>requireFreshInputTicket(state,101),/expired/);
+ const source=readFileSync(new URL('../src/direct-server.mjs',import.meta.url),'utf8');
+ assert.match(source,/await state\.control\.beginInput\?\.\(\);[\s\S]{0,300}requireFreshInputTicket\(state\)/);
 });

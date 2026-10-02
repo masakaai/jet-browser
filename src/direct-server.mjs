@@ -13,6 +13,11 @@ const requireCurrentInput = state => {
   if(state.claims.scope!=='input'||!Number.isSafeInteger(state.claims.epoch)||state.claims.epoch!==state.control.controlEpoch)throw Error('Stale browser control ticket');
 };
 
+export const requireFreshInputTicket=(state,now=Math.floor(Date.now()/1000))=>{
+  requireCurrentInput(state);
+  if(state.claims.exp<now)throw Error('Input capability expired');
+};
+
 export const DIRECT_ACTION_TYPES=new Set(['input','navigate','tab-switch','tab-new','tab-close']);
 const readyPayload=(state,scope)=>({session_id:state.claims.sid,scope,preview_mode:state.claims.mode,viewport:state.control.row.viewport||{width:1280,height:800},tabs:state.control.tabs||[],active_tab:state.control.activeTab||null});
 
@@ -159,12 +164,13 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
           return;
         }
         if(!DIRECT_ACTION_TYPES.has(message.type)||state.claims.scope!=='input')throw Error('Input capability required');
-        requireCurrentInput(state);
-        if(state.claims.exp<Math.floor(Date.now()/1000))throw Error('Input capability expired');
+        requireFreshInputTicket(state);
         const seq=Number(message.seq);if(!Number.isSafeInteger(seq)||seq<0)throw Error('Invalid input sequence');
         const started=Date.now();await state.control.beginInput?.();
         try{
-          requireCurrentInput(state);
+          // beginInput can wait behind a long engine operation. Revalidate both
+          // epoch and expiry at the actual dispatch boundary.
+          requireFreshInputTicket(state);
           if(message.type==='input')await state.control.applyInput(message.events,state.claims.epoch);
           else if(message.type==='navigate')await state.control.navigate(message.url,state.claims.epoch);
           else if(message.type==='tab-switch')await state.control.switchTab(message.handle,state.claims.epoch);
