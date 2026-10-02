@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
+test('profile import rejects a document that changed origin before execution',async()=>{
+ const source=await readFile(new URL('../rust/profile-import.js',import.meta.url),'utf8');
+ const previous=globalThis.location;globalThis.location={origin:'https://attacker.example'};
+ try{
+  const result=await new Promise(resolve=>new Function(source)({restore:{}},'https://saved.example',resolve));
+  assert.match(result.__masaka_error,/origin changed/);
+ }finally{if(previous===undefined)delete globalThis.location;else globalThis.location=previous;}
+});
+
 test('profile import restores bodyless responses and invalidates opaque entries for refetch',async()=>{
  const source=await readFile(new URL('../rust/profile-import.js',import.meta.url),'utf8'),written=[];
  const previous={caches:globalThis.caches,localStorage:globalThis.localStorage,sessionStorage:globalThis.sessionStorage,indexedDB:globalThis.indexedDB};

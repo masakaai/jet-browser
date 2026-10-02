@@ -14,13 +14,14 @@ export async function applyPortableProfile(engine,state,tracker,stateURL=null,{p
  requireProfileOrigin(actualURL,targetURL);
  const value=profileStateForRestore(state,targetURL,tracker),hasCache=value?.cache_storage?.length||value?.restore?.cache_storage===true;
  if(!shouldApplyWpeState(value))return false;
- await engine.importState(value);
+ const expectedOrigin=new URL(targetURL).origin;
+ await engine.importState(value,expectedOrigin);
  const navigated=await navigate(engine,targetURL,{timeoutMs,...(pause?{pause}:{})});
  const landed=String(navigated?.url||await engine.url());
  // CacheStorage is origin-bound. Never replay saved cache entries into a
  // redirect destination selected by the remote site.
  requireProfileOrigin(landed,targetURL);
- if(hasCache)await engine.importState(cacheOnlyState(value));
+ if(hasCache)await engine.importState(cacheOnlyState(value),expectedOrigin);
  markProfileStateRestored(tracker,targetURL,value);
  return true;
 }

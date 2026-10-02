@@ -55,7 +55,7 @@ export class WpeClient{
 	 drainSemantic(maxBytes=2_100_000,maxMessages=128){return this.command({op:'drain_semantic',max_bytes:maxBytes,max_messages:maxMessages});}
 	 semanticControl(type,payload={}){return this.command({op:'semantic_control',type,payload});}
 	 exportState(){return this.command({op:'export_state'});}
- importState(state){return this.command({op:'import_state',state});}
+ importState(state,expectedOrigin){return this.command({op:'import_state',state,expected_origin:expectedOrigin});}
  release(){return this.command({op:'release'});}
 	 async close(){if(this.closed)return this.cleanupOrphan();try{await this.command({op:'close'},15000);this.sessionId=null;}catch(error){try{await this.cleanupOrphan();}catch(cleanupError){throw new AggregateError([error,cleanupError],'WPE session cleanup failed');}throw error;}finally{this.closed=true;this.lines.close();this.child.stdin.end();setTimeout(()=>this.child.kill('SIGKILL'),2000).unref();}}
 	 async cleanupOrphan(attempts=3){

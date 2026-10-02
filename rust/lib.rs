@@ -625,7 +625,7 @@ impl Wpe {
         object.insert("cookies".into(), cookies);
         Ok(state)
     }
-    pub fn import_state(&self, state: &Value) -> Result<Value> {
+    pub fn import_state(&self, state: &Value, expected_origin: &str) -> Result<Value> {
         if serde_json::to_vec(state)
             .map_err(|_| "Invalid profile state")?
             .len()
@@ -678,7 +678,7 @@ impl Wpe {
         let result = self.request(
             Method::POST,
             &self.path("/execute/async")?,
-            Some(json!({"script":IMPORT_PROFILE_SCRIPT,"args":[state]})),
+            Some(json!({"script":IMPORT_PROFILE_SCRIPT,"args":[state,expected_origin]})),
         )?;
         if let Some(error) = result.get("__masaka_error").and_then(Value::as_str) {
             return Err(format!("Profile import failed: {error}"));
