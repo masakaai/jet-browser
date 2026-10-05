@@ -28,6 +28,34 @@ test('browser SDK defaults new sessions to visual frames',async()=>{
  const browser=new MasakaBrowserClient({accessToken:'account-token',projectId:project,fetchImpl});
  await browser.create();
  assert.equal(JSON.parse(calls[0].init.body).preview_mode,'visual');
+ assert.equal(JSON.parse(calls[0].init.body).region,'overseas');
+});
+
+test('browser SDK selects China capacity and rejects unknown regions before a request',async()=>{
+ const calls=[],fetchImpl=async(url,init)=>{calls.push({url,init});return response({id:'session-1',region:'china'});};
+ const browser=new MasakaBrowserClient({accessToken:'account-token',projectId:project,fetchImpl});
+ await browser.create({region:'china'});
+ assert.equal(JSON.parse(calls[0].init.body).region,'china');
+ assert.throws(()=>browser.create({region:'mars'}),/Unsupported browser region/);
+ assert.equal(calls.length,1);
+});
+
+test('signed-in browser SDK sends real tab commands with human control',async()=>{
+ const sent=[];let reads=0;
+ const fetchImpl=async(url,init)=>{
+  if(url.endsWith('/control'))return response({token:'control-token',mode:'human'});
+  if(url.endsWith('/commands')){sent.push(JSON.parse(init.body));return response({id:`command-${sent.length}`});}
+  if(url.includes('/commands/'))return response(++reads%2===0?{status:'completed',result:{active_tab:'page-one',tabs:[]}}:{status:'queued'});
+  throw Error(url);
+ };
+ const browser=new MasakaBrowserClient({accessToken:'account-token',projectId:project,fetchImpl});
+ await browser.takeControl('session-1');
+ await browser.snapshot('session-1');
+ await browser.tabs('session-1');
+ await browser.newTab('session-1');
+ await browser.switchTab('session-1','page-one');
+ await browser.closeTab('session-1','page-two');
+ assert.deepEqual(sent,[{kind:'snapshot'},{kind:'tabs'},{kind:'tab_new'},{kind:'tab_switch',handle:'page-one'},{kind:'tab_close',handle:'page-two'}]);
 });
 
 test('browser SDK connects to direct worker and assembles chunked frames',async()=>{

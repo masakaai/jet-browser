@@ -1,3 +1,5 @@
+import {browserRegion} from '../src/region.mjs';
+
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const topicBytes=value=>{
   if(value instanceof ArrayBuffer)return value;
@@ -27,7 +29,7 @@ export class MasakaBrowserClient {
     if(raw){if(!response.ok)throw Error(`Browser API error (${response.status})`);return response;}
     const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||`Browser API error (${response.status})`);return data;
   }
-  create({url='https://duckduckgo.com/',profileId=null,proxyId=null,previewMode='visual',maxSeconds=300,name='Browser session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,proxy_id:proxyId,preview_mode:previewMode,max_seconds:maxSeconds,name});}
+  create({url='https://duckduckgo.com/',profileId=null,proxyId=null,previewMode='visual',region='overseas',maxSeconds=300,name='Browser session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,proxy_id:proxyId,preview_mode:previewMode,region:browserRegion(region),max_seconds:maxSeconds,name});}
   get(id){return this.request('sessions/'+encodeURIComponent(id));}
   async stop(id){try{return await this.request('sessions/'+encodeURIComponent(id)+'/stop','POST',{});}finally{this.controls.delete(id);}}
   async waitForReady(id,{timeout=60000,signal}={}){const start=Date.now();while(Date.now()-start<timeout){if(signal?.aborted)throw signal.reason||Error('Aborted');const session=await this.get(id);if(session.status==='running')return session;if(['failed','completed'].includes(session.status))throw Error(session.error||'Session ended');await wait(900);}throw Error('Browser startup timed out');}
@@ -43,6 +45,12 @@ export class MasakaBrowserClient {
   text(id,text,options){return this.input(id,[{type:'text',text}],options);}
   releaseInputs(id,options){return this.input(id,[{type:'release'}],options);}
   navigate(id,url,options){return this.command(id,{kind:'navigate',url},options);}
+  drag(id,{x,y,toX,toY},options){return this.command(id,{kind:'drag',x,y,to_x:toX,to_y:toY},options);}
+  snapshot(id,options){return this.command(id,{kind:'snapshot'},options);}
+  tabs(id,options){return this.command(id,{kind:'tabs'},options);}
+  switchTab(id,handle,options){return this.command(id,{kind:'tab_switch',handle},options);}
+  newTab(id,options){return this.command(id,{kind:'tab_new'},options);}
+  closeTab(id,handle,options){return this.command(id,{kind:'tab_close',handle},options);}
   async listDownloads(id,{page=1,pageSize=25}={}){return this.request(`sessions/${encodeURIComponent(id)}/downloads?page=${page}&page_size=${pageSize}`);}
   download(id,downloadId){return this.request(`sessions/${encodeURIComponent(id)}/downloads?download_id=${encodeURIComponent(downloadId)}`,'GET',undefined,{raw:true});}
   /** Subscribe directly to the assigned browser worker. Returns a close handle. */
