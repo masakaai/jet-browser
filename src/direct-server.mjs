@@ -90,7 +90,7 @@ export async function revokeDirectControl(active, worker, claims) {
   return {revoked:true,epoch:control.controlEpoch};
 }
 
-export function createDirectServer({ active, worker, secret, port = 8787 }) {
+export function createDirectServer({ active, worker, secret, port = 8787, host = '127.0.0.1' }) {
   const http = createServer(async(req,res) => {
     if (req.url === '/health') { res.writeHead(200,{'content-type':'application/json'}); return res.end('{"ok":true}'); }
     if(req.url==='/v1/revoke'&&req.method==='POST'){
@@ -141,7 +141,7 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
     control.wake?.();control.wake=null;
     json(socket,{type:'ready',payload:readyPayload(socket.masaka,claims.scope)});
   };
-  wss.on('connection',socket=>{
+  wss.on('connection',(socket,request)=>{
     sockets.add(socket);socket.isAlive=true;socket.masakaClosed=false;socket.masakaMessages=Promise.resolve();
     socket.on('pong',()=>{socket.isAlive=true;});
     socket.on('message',(data,isBinary)=>{void enqueueSocketMessage(socket,async()=>{
@@ -189,9 +189,12 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
     });});
     socket.on('close',()=>{socket.masakaClosed=true;sockets.delete(socket);void enqueueSocketMessage(socket,async()=>{if(socket.masaka?.claims.scope==='input'){socket.masaka.claims.scope='view';await releaseInput(socket.masaka.control).catch(()=>{});}socket.masaka?.control.clients.delete(socket);}).catch(()=>{});});
     socket.on('error',()=>{});
+    let queryTicket='';
+    try{queryTicket=new URL(request.url,'http://localhost').searchParams.get('ticket')||'';}catch{}
+    if(queryTicket&&queryTicket.length<=4096)void enqueueSocketMessage(socket,()=>authorize(socket,queryTicket)).catch(()=>socket.close(4003,'Authorization denied'));
   });
   const heartbeat=setInterval(()=>{const now=Math.floor(Date.now()/1000);for(const socket of sockets){if(socket.masaka?.claims.exp<now){socket.close(4003,'Capability expired');continue;}if(!socket.isAlive){socket.terminate();continue;}socket.isAlive=false;socket.ping();}},15000);heartbeat.unref();
-  http.listen(port,'127.0.0.1');
+  http.listen(port,host);
   return {
     broadcast(control,event,payload){
       let sent=false;

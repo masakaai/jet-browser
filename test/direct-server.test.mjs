@@ -7,6 +7,13 @@ test('direct input protocol includes real browser tab lifecycle actions',()=>{
  assert.deepEqual([...DIRECT_ACTION_TYPES],['input','navigate','tab-switch','tab-new','tab-close']);
 });
 
+test('short-lived copied connection URLs authorize without exposing a second credential field',()=>{
+ const source=readFileSync(new URL('../src/direct-server.mjs',import.meta.url),'utf8');
+ assert.match(source,/new URL\(request\.url,'http:\/\/localhost'\)\.searchParams\.get\('ticket'\)/);
+ assert.match(source,/authorize\(socket,queryTicket\)/);
+ assert.match(source,/queryTicket\.length<=4096/);
+});
+
 test('Visual backpressure skips only the next whole stale frame',()=>{
  const socket={bufferedAmount:64_001};
  assert.equal(frameBackpressured(socket,'frame'),true);
