@@ -12,11 +12,18 @@ test('direct navigation resets preview before starting the new document', () => 
   assert.ok(open > reset, 'preview reset must be sent before the new document starts');
 });
 
-test('WPE tab lifecycle stays on one renderable physical page',()=>{
+test('WPE tab lifecycle uses real WebDriver window handles',()=>{
  const close=source.slice(source.indexOf('control.closeTab='),source.indexOf('await engineTask(()=>syncTabsEngine'));
- assert.doesNotMatch(close,/engine\.closeWindow\(/);
- assert.match(close,/control\.tabs=control\.tabs\.filter/);
- assert.match(source,/control\.virtualTabs\?syncVirtualTabs\(options\):syncTabsEngine\(options\)/);
+ const change=source.slice(source.indexOf('control.switchTab='),source.indexOf('await engineTask(()=>syncTabsEngine'));
+ assert.match(change,/engine\.switchWindow\(handle\)/);
+ assert.match(change,/engine\.newWindow\('tab'\)/);
+ assert.match(close,/engine\.closeWindow\(\)/);
+ assert.doesNotMatch(source,/virtualTabs|virtualTabSequence|syncVirtualTabs/);
+ assert.match(source,/command\.kind==='tabs'/);
+ assert.match(source,/command\.kind==='tab_switch'/);
+ assert.match(source,/command\.kind==='tab_new'/);
+ assert.match(source,/command\.kind==='tab_close'/);
+ assert.match(source,/active_tab:control\.activeTab/);
 });
 
 test('direct sessions do not route HTTPS through the optional account proxy',()=>{
