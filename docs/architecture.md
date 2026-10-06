@@ -27,6 +27,8 @@ flowchart TB
 
 The real-time path does not synchronously call Vercel, Supabase Realtime, Postgres, or object storage for each frame or input. The control plane creates the session and issues a short-lived ticket; the viewer then connects to the assigned regional router.
 
+Each worker exposes aggregate Prometheus metrics on `GET /metrics` only when a dedicated `MASAKA_METRICS_TOKEN` is configured, and requires that token as a bearer credential. The route remains protected even when the data-plane listener is forwarded by a standalone tunnel. Metrics intentionally omit session, account, project, URL, and worker labels; operators receive queue/buffer/failure signals without turning user identifiers into a telemetry surface.
+
 ## Session lifecycle
 
 ```mermaid
@@ -81,3 +83,5 @@ Workers register one immutable region and claim only matching sessions. The auto
 ## Current protocol boundary
 
 The public integration surface is the MASAKA session/action SDK plus the signed-in direct preview/input protocol. Jet Browser does not currently publish a general CDP endpoint. Chromium-only extensions, Chrome policies, and CDP-specific tooling therefore require a separate Chromium execution tier rather than pretending WPE implements those contracts.
+
+The rationale and exact upstream revisions behind recent SDK, runtime-metrics, and tool-catalog decisions are recorded in [Kernel open-source design review](./kernel-open-source-review.md).

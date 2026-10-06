@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 2,
+  "capturedAt": "2026-10-06T06:33:34.903Z",
+  "method": {
+    "targetUrl": "https://masaka-ai.vercel.app/browser-check.html",
+    "expectations": {
+      "expectTitle": "MASAKA browser verification",
+      "expectSelector": "#save"
+    },
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "runs": 3,
+    "warmups": 1,
+    "concurrency": 1,
+    "order": [
+      "masaka"
+    ],
+    "metrics": [
+      "sessionCreateMs",
+      "sessionConnectMs",
+      "targetLoadAndVerifyMs",
+      "targetReadyMs",
+      "scriptRoundTripMs",
+      "stopMs"
+    ]
+  },
+  "runtime": {
+    "node": "v26.3.1",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "providers": {
+    "masaka": {
+      "status": "measured",
+      "warmup": {
+        "requested": 1,
+        "passed": 1,
+        "failed": 0,
+        "successRate": 1,
+        "sessionCreateMs": {
+          "count": 1,
+          "min": 521,
+          "median": 521,
+          "p95": 521,
+          "p99": 521,
+          "max": 521,
+          "mean": 521,
+          "stddev": 0
+        },
+        "sessionConnectMs": null,
+        "targetLoadAndVerifyMs": {
+          "count": 1,
+          "min": 4260,
+          "median": 4260,
+          "p95": 4260,
+          "p99": 4260,
+          "max": 4260,
+          "mean": 4260,
+          "stddev": 0
+        },
+        "targetReadyMs": {
+          "count": 1,
+          "min": 4781,
+          "median": 4781,
+          "p95": 4781,
+          "p99": 4781,
+          "max": 4781,
+          "mean": 4781,
+          "stddev": 0
+        },
+        "scriptRoundTripMs": {
+          "count": 1,
+          "min": 1038,
+          "median": 1038,
+          "p95": 1038,
+          "p99": 1038,
+          "max": 1038,
+          "mean": 1038,
+          "stddev": 0
+        },
+        "stopMs": {
+          "count": 1,
+          "min": 1812,
+          "median": 1812,
+          "p95": 1812,
+          "p99": 1812,
+          "max": 1812,
+          "mean": 1812,
+          "stddev": 0
+        }
+      },
+      "warmup_samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "sessionCreateMs": 521,
+          "region": "overseas",
+          "targetReadyMs": 4781,
+          "targetLoadAndVerifyMs": 4260,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 1038,
+          "stopMs": 1812,
+          "warmup": true
+        }
+      ],
+      "summary": {
+        "requested": 3,
+        "passed": 3,
+        "failed": 0,
+        "successRate": 1,
+        "sessionCreateMs": {
+          "count": 3,
+          "min": 320,
+          "median": 358,
+          "p95": 360,
+          "p99": 360,
+          "max": 360,
+          "mean": 346,
+          "stddev": 18
+        },
+        "sessionConnectMs": null,
+        "targetLoadAndVerifyMs": {
+          "count": 3,
+          "min": 3672,
+          "median": 4035,
+          "p95": 4149,
+          "p99": 4149,
+          "max": 4149,
+          "mean": 3952,
+          "stddev": 203
+        },
+        "targetReadyMs": {
+          "count": 3,
+          "min": 4030,
+          "median": 4395,
+          "p95": 4469,
+          "p99": 4469,
+          "max": 4469,
+          "mean": 4298,
+          "stddev": 192
+        },
+        "scriptRoundTripMs": {
+          "count": 3,
+          "min": 625,
+          "median": 979,
+          "p95": 1031,
+          "p99": 1031,
+          "max": 1031,
+          "mean": 878,
+          "stddev": 180
+        },
+        "stopMs": {
+          "count": 3,
+          "min": 1097,
+          "median": 1301,
+          "p95": 1320,
+          "p99": 1320,
+          "max": 1320,
+          "mean": 1239,
+          "stddev": 101
+        }
+      },
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "sessionCreateMs": 358,
+          "region": "overseas",
+          "targetReadyMs": 4030,
+          "targetLoadAndVerifyMs": 3672,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 979,
+          "stopMs": 1301
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "sessionCreateMs": 360,
+          "region": "overseas",
+          "targetReadyMs": 4395,
+          "targetLoadAndVerifyMs": 4035,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 625,
+          "stopMs": 1320
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "sessionCreateMs": 320,
+          "region": "overseas",
+          "targetReadyMs": 4469,
+          "targetLoadAndVerifyMs": 4149,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 1031,
+          "stopMs": 1097
+        }
+      ]
+    }
+  }
+}

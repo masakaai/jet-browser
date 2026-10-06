@@ -13,6 +13,25 @@ test('server SDK routes sessions to an explicit regional pool',async()=>{
  }finally{globalThis.fetch=original;}
 });
 
+test('server SDK exposes validated auto-pagination without a 100-session ceiling',async()=>{
+ const calls=[],original=globalThis.fetch;
+ globalThis.fetch=async url=>{
+  calls.push(url);
+  const page=new URL(url).searchParams.get('page');
+  return Response.json(page==='1'
+   ?{items:[{id:'one'}],pagination:{page:1,page_size:1,total:2,total_pages:2,has_previous:false,has_next:true}}
+   :{items:[{id:'two'}],pagination:{page:2,page_size:1,total:2,total_pages:2,has_previous:true,has_next:false}});
+ };
+ try{
+  const client=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'}),ids=[];
+  for await(const session of client.listAll({pageSize:1,tab:'past',search:'report'}))ids.push(session.id);
+  assert.deepEqual(ids,['one','two']);
+  assert.equal(calls.length,2);
+  assert.ok(calls.every(url=>url.includes('page_size=1')&&url.includes('tab=past')&&url.includes('search=report')));
+  await assert.rejects(client.list({pageSize:101}),/pageSize/);
+ }finally{globalThis.fetch=original;}
+});
+
 test('SDK acquires an agent capability once and sends it with actions',async()=>{
  const calls=[],original=globalThis.fetch;
  globalThis.fetch=async(url,options={})=>{calls.push({url,options});if(url.endsWith('/control'))return Response.json({mode:'agent',token:'agent-capability',epoch:1});if(url.endsWith('/commands'))return Response.json({id:'command-1',status:'queued'});return Response.json({id:'command-1',status:'completed',result:{ok:true}});};
@@ -45,13 +64,36 @@ test('concurrent first actions share one control acquisition',async()=>{
  }finally{globalThis.fetch=original;}
 });
 
+test('aborting during control acquisition never submits the browser mutation',async()=>{
+ const calls=[],original=globalThis.fetch;let releaseControl;
+ const controlReady=new Promise(resolve=>{releaseControl=resolve;});
+ globalThis.fetch=async(url,options={})=>{
+  calls.push({url,options});
+  if(url.endsWith('/control')){await controlReady;return Response.json({mode:'agent',token:'capability',epoch:1});}
+  if(url.endsWith('/commands'))return Response.json({id:'must-not-run'});
+  return Response.json({status:'completed',result:{}});
+ };
+ try{
+  const client=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'}),controller=new AbortController();
+  const pending=client.click('browser-1',10,20,{signal:controller.signal});
+  await new Promise(resolve=>setImmediate(resolve));
+  controller.abort(Error('cancel action'));
+  await assert.rejects(pending,/cancel action/);
+  assert.equal(calls.filter(call=>call.url.endsWith('/commands')).length,0);
+  releaseControl();
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(calls.filter(call=>call.url.endsWith('/commands')).length,0);
+ }finally{globalThis.fetch=original;releaseControl?.();}
+});
+
 test('explicit control replacement fences an older acquisition response',async()=>{
  const original=globalThis.fetch;let finish;
  globalThis.fetch=()=>new Promise(resolve=>{finish=resolve;});
  try{
-  const client=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'});
-  const pending=client.acquire('browser-1');
-  client.setControlToken('browser-1','new-explicit-capability');
+ const client=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'});
+ const pending=client.acquire('browser-1');
+  while(!finish)await Promise.resolve();
+ client.setControlToken('browser-1','new-explicit-capability');
   finish(Response.json({mode:'agent',token:'stale-capability',epoch:1}));
   await pending;
   assert.equal(client.controls.get('browser-1'),'new-explicit-capability');

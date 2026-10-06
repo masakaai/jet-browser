@@ -1,4 +1,5 @@
 import {browserRegion} from '../src/region.mjs';
+import {MasakaPage,MasakaTransport,queryString} from './transport.mjs';
 
 const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const topicBytes=value=>{
@@ -14,24 +15,30 @@ const topicBytes=value=>{
  * service keys and MASAKA API keys must never be shipped in a public client.
  */
 export class MasakaBrowserClient {
-  constructor({accessToken,getAccessToken,projectId,baseUrl='https://masaka-backend.vercel.app',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,setTimeoutImpl=globalThis.setTimeout,clearTimeoutImpl=globalThis.clearTimeout}={}){
+  constructor({accessToken,getAccessToken,projectId,baseUrl='https://masaka-backend.vercel.app',fetchImpl=globalThis.fetch,WebSocketImpl=globalThis.WebSocket,setTimeoutImpl=globalThis.setTimeout,clearTimeoutImpl=globalThis.clearTimeout,timeout=60_000,maxRetries=2,sleepImpl,random}={}){
     if(!accessToken&&!getAccessToken)throw Error('Provide accessToken or getAccessToken');
     if(!projectId)throw Error('projectId is required');
     if(typeof fetchImpl!=='function')throw Error('fetch is unavailable');
     this.accessToken=accessToken;this.getAccessToken=getAccessToken;this.projectId=projectId;
     this.baseUrl=baseUrl.replace(/\/$/,'');this.fetch=fetchImpl;this.WebSocket=WebSocketImpl;this.setTimeout=setTimeoutImpl;this.clearTimeout=clearTimeoutImpl;this.controls=new Map();
+    this.transport=new MasakaTransport({baseUrl:`${this.baseUrl}/api`,fetchImpl,timeout,maxRetries,...(sleepImpl?{sleepImpl}:{}),...(random?{random}:{}),getHeaders:async()=>({Authorization:'Bearer '+await this.token(),'X-Masaka-Project':this.projectId})});
   }
   async token(){const value=this.getAccessToken?await this.getAccessToken():this.accessToken;if(!value)throw Error('Your sign-in session expired');return value;}
   async request(path,method='GET',body,{control,raw=false}={}){
-    const headers={Authorization:'Bearer '+await this.token(),'X-Masaka-Project':this.projectId};
-    if(body!==undefined)headers['Content-Type']='application/json';if(control)headers['X-Masaka-Control']=control;
-    const response=await this.fetch(this.baseUrl+'/api/'+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)});
-    if(raw){if(!response.ok)throw Error(`Browser API error (${response.status})`);return response;}
-    const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||`Browser API error (${response.status})`);return data;
+    return this.transport.request(path,{method,body,raw,...(control?{headers:{'X-Masaka-Control':control}}:{})});
   }
   create({url='https://duckduckgo.com/',profileId=null,proxyId=null,previewMode='visual',region='overseas',maxSeconds=300,name='Browser session'}={}){return this.request('sessions','POST',{url,profile_id:profileId,proxy_id:proxyId,preview_mode:previewMode,region:browserRegion(region),max_seconds:maxSeconds,name});}
   get(id){return this.request('sessions/'+encodeURIComponent(id));}
-  async stop(id){try{return await this.request('sessions/'+encodeURIComponent(id)+'/stop','POST',{});}finally{this.controls.delete(id);}}
+  async list({page=1,pageSize=25,tab='all',search=''}={}){
+    if(!Number.isInteger(page)||page<1||page>10000)throw Error('page must be an integer from 1 to 10000');
+    if(!Number.isInteger(pageSize)||pageSize<1||pageSize>100)throw Error('pageSize must be an integer from 1 to 100');
+    if(!['all','active','past'].includes(tab))throw Error('tab must be all, active, or past');
+    if(typeof search!=='string'||search.length>100)throw Error('search must be at most 100 characters');
+    const load=async nextPage=>new MasakaPage(await this.request(`sessions?${queryString({page:nextPage,page_size:pageSize,tab,search})}`),load);
+    return load(page);
+  }
+  async *listAll(options={}){yield* await this.list(options);}
+  async stop(id){try{return await this.transport.request(`sessions/${encodeURIComponent(id)}/stop`,{method:'POST',body:{},retry:'always'});}finally{this.controls.delete(id);}}
   async waitForReady(id,{timeout=60000,signal}={}){const start=Date.now();while(Date.now()-start<timeout){if(signal?.aborted)throw signal.reason||Error('Aborted');const session=await this.get(id);if(session.status==='running')return session;if(['failed','completed'].includes(session.status))throw Error(session.error||'Session ended');await wait(900);}throw Error('Browser startup timed out');}
   async takeControl(id){const previous=this.controls.get(id);const claim=await this.request('sessions/'+encodeURIComponent(id)+'/control','POST',{mode:'human'},{control:previous});this.controls.set(id,claim.token);return claim;}
   async releaseControl(id){const token=this.controls.get(id);if(!token)return {mode:'agent'};const released=await this.request('sessions/'+encodeURIComponent(id)+'/control','DELETE',undefined,{control:token});this.controls.delete(id);return released;}

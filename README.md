@@ -77,6 +77,8 @@ try {
 
 Use `sdk/browser.mjs` in signed-in web and mobile clients. It exchanges the user's access token for a short-lived session ticket, then connects directly to the assigned worker. Service-role keys and MASAKA API keys must never be bundled into a public client.
 
+For agent frameworks, `sdk/tools.mjs` provides versioned tool identities, JSON Schema declarations, collision checks, and execution binding over one existing session. The default catalog excludes arbitrary JavaScript evaluation. See [Agent tool catalog](./docs/agent-tools.md).
+
 ## Architecture
 
 ```mermaid
@@ -98,10 +100,10 @@ The repository includes one harness and three provider adapters. The harness app
 
 ```bash
 # Run every provider whose key is present.
-npm run benchmark -- --providers=masaka,browser-use,kernel --runs=5
+npm run benchmark -- --providers=masaka,browser-use,kernel --warmups=3 --runs=5
 
 # MASAKA only.
-npm run benchmark -- --providers=masaka --runs=5 --out=benchmarks/results/local.json
+npm run benchmark -- --providers=masaka --warmups=1 --runs=5 --out=benchmarks/results/local.json
 ```
 
 Required variables are `MASAKA_API_KEY`, `BROWSER_USE_API_KEY`, and `KERNEL_API_KEY`. Missing credentials are reported as `skipped`, never as zero or failed performance. The latest verified MASAKA production sample and the measurement limitations are in [Benchmarks](./docs/benchmarks.md); the capability comparison is in [Provider comparison](./docs/comparison.md).
@@ -118,7 +120,7 @@ Build a worker image with an explicit version:
 
 ```bash
 docker build -f Dockerfile.wpe-worker \
-  -t masaka-jet-browser-wpe:0.6.4 .
+  -t masaka-jet-browser-wpe:0.6.5 .
 ```
 
 The worker requires control-plane credentials, a ticket-signing secret, and a unique immutable worker ID. Keep deployment secrets in your secret manager or an untracked env file. Never commit them.
@@ -137,4 +139,4 @@ The worker requires control-plane credentials, a ticket-signing secret, and a un
 
 Jet Browser is browser infrastructure, not an LLM agent framework. Browser Use and similar frameworks can sit above it; MASAKA Agent Harness is a separate product layer. Jet Browser currently exposes its ordered action API and direct preview/input protocol, not a public CDP endpoint.
 
-Read [Demo guide](./docs/demo.md), [Contributing](./CONTRIBUTING.md), and [Security](./SECURITY.md) before deploying or changing the protocol.
+Read [Demo guide](./docs/demo.md), [Kernel open-source design review](./docs/kernel-open-source-review.md), [Contributing](./CONTRIBUTING.md), and [Security](./SECURITY.md) before deploying or changing the protocol.
