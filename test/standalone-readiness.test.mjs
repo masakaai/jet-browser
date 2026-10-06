@@ -38,6 +38,7 @@ test('standalone image has no hosted control-plane dependency', async () => {
   assert.match(entrypoint, /jet-wpe/);
   assert.match(smoke, /Dockerfile\.standalone/);
   assert.match(smoke, /systempaths=unconfined/);
+  assert.match(smoke, /apparmor=unconfined/);
   assert.match(smoke, /seccomp=/);
   assert.match(smoke, /"op":"create"|op: 'create'/);
   assert.match(smoke, /"op":"close"|op: 'close'/);

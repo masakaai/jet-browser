@@ -55,6 +55,7 @@ printf '%s\n' \
 docker run --rm -i --network=none --cap-drop=ALL \
   --env=JET_BROWSER_SMOKE=1 \
   --cap-add=SETUID --cap-add=SETGID \
+  --security-opt=apparmor=unconfined \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
@@ -106,7 +107,7 @@ Each input line is one JSON command. Each output line is one JSON response.
 
 Use a dedicated container per mutually untrusted session. Treat evaluate, imported profiles, downloads, and outbound network access as privileged capabilities in your own integration.
 
-The smoke-only loopback page starts only when JET_BROWSER_SMOKE=1. The included seccomp profile permits the user and mount namespace operations required by WPE WebKit's own bubblewrap sandbox. The container does not receive SYS_ADMIN or privileged mode.
+The smoke-only loopback page starts only when JET_BROWSER_SMOKE=1. The included seccomp profile permits the user and mount namespace operations required by WPE WebKit's own bubblewrap sandbox. On AppArmor hosts, the outer container profile is disabled because it blocks that inner sandbox; the process still receives no SYS_ADMIN capability, no effective capabilities after startup, and no privileged mode.
 
 ## Develop and verify
 

@@ -46,6 +46,7 @@ printf '%s\n' \
 docker run --rm -i --network=none --cap-drop=ALL \
   --env=JET_BROWSER_SMOKE=1 \
   --cap-add=SETUID --cap-add=SETGID \
+  --security-opt=apparmor=unconfined \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
@@ -74,4 +75,4 @@ Use the same transport from any language:
 
 The reference implementation is [scripts/standalone-smoke.mjs](../scripts/standalone-smoke.mjs). It uses only Node.js built-ins and Docker; it does not install the repository’s JavaScript dependencies. Its loopback fixture server starts only for this smoke mode and remains unreachable outside the network-disabled container.
 
-WPE WebKit uses bubblewrap for its browser sandbox. The checked-in seccomp profile allows the namespace syscalls it needs, while the container remains non-privileged and receives no SYS_ADMIN capability.
+WPE WebKit uses bubblewrap for its browser sandbox. The checked-in seccomp profile allows the namespace syscalls it needs. AppArmor is disabled at the outer container boundary because its default user-namespace rule conflicts with bubblewrap; the container remains non-privileged, receives no SYS_ADMIN capability, and drops all effective capabilities after startup.

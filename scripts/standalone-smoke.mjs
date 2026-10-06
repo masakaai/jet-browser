@@ -39,7 +39,8 @@ const child = spawn(docker, [
   'run', '--rm', '-i', '--network=none', '--cap-drop=ALL',
   '--cap-add=SETUID', '--cap-add=SETGID',
   '--security-opt=no-new-privileges', '--security-opt=systempaths=unconfined',
-  '--security-opt=seccomp=' + seccomp, '--memory=1g', '--cpus=2',
+  '--security-opt=apparmor=unconfined', '--security-opt=seccomp=' + seccomp,
+  '--memory=1g', '--cpus=2',
   '--pids-limit=256', '--shm-size=256m', '--env=JET_BROWSER_SMOKE=1', image
 ], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
 
@@ -94,7 +95,8 @@ const responses = lines.map((line, index) => {
     throw Error(commands[index].op + ': invalid JSON response: ' + error.message);
   }
   if (!response.ok) {
-    throw Error(commands[index].op + ': ' + (response.error || 'Browser command failed'));
+    throw Error(commands[index].op + ': ' + (response.error || 'Browser command failed') +
+      (stderr ? ': ' + stderr.trim() : ''));
   }
   return response.value;
 });
