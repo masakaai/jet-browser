@@ -9,6 +9,15 @@ const cookieDeletion=(cookie,captureRevision)=>({name:String(cookie.name),domain
 const toWpeCookie=cookie=>{const domain=String(cookie.domain),value={name:String(cookie.name),value:String(cookie.value),path:String(cookie.path||'/'),httpOnly:!!cookie.httpOnly,secure:!!cookie.secure,sameSite:cookie.sameSite||'Lax'};if(domain.startsWith('.'))value.domain=domain;if(Number(cookie.expires)>0)value.expiry=Math.floor(Number(cookie.expires));return value;};
 const revision=value=>Number.isSafeInteger(value)&&value>0?value:0;
 export const normalizeProfileState=value=>({nativeRevision:revision(value?.nativeRevision),cookieRevision:revision(value?.cookieRevision),cookies:Array.isArray(value?.cookies)?value.cookies:[],cookieDeletions:Array.isArray(value?.cookieDeletions)?value.cookieDeletions:[],origins:Array.isArray(value?.origins)?value.origins:[]});
+export function overlayNewerProfileSummary(bundle,summary){
+ const detailed=normalizeProfileState(bundle),fresh=normalizeProfileState(summary),cookies=fresh.cookieRevision>detailed.cookieRevision?fresh:detailed,origins=new Map(detailed.origins.map(origin=>[origin.origin,origin]));
+ for(const current of fresh.origins){
+  const saved=origins.get(current.origin);
+  if(revision(current.revision)<=revision(saved?.revision))continue;
+  origins.set(current.origin,{...saved,...current,localStorage:current.localStorage||[],sessionStorage:saved?.sessionStorage||[],indexedDB:saved?.indexedDB||[],cacheStorage:saved?.cacheStorage||[]});
+ }
+ return {...detailed,nativeRevision:Math.max(detailed.nativeRevision,fresh.nativeRevision),cookieRevision:cookies.cookieRevision,cookies:cookies.cookies,cookieDeletions:cookies.cookieDeletions,origins:[...origins.values()]};
+}
 export function mergeWpeState(state,url,current,captureRevision=0){
  const value=normalizeProfileState(state),location=new URL(url),prior=value.origins.find(item=>item.origin===location.origin);
  const currentRevision=revision(captureRevision),captured=(current.cookies||[]).map(cookie=>fromWpeCookie(cookie,currentRevision)),capturedKeys=new Set(captured.map(cookieKey));
