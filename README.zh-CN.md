@@ -1,8 +1,10 @@
-# Jet Browser
+<h1 align="center">Jet Browser</h1>
 
 <p align="center"><strong>面向 Web Agent 的小型开源浏览器运行时。</strong><br>WPE WebKit、原生输入、确定性自动化与可嵌入的 JSONL 协议。</p>
 
-![Jet Browser 开源浏览器运行时](./docs/assets/jet-browser-banner.png)
+<p align="center">
+  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser 开源浏览器运行时">
+</p>
 
 <p align="center"><a href="./README.md">English</a> · 简体中文 · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a></p>
 

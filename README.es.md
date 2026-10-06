@@ -1,8 +1,10 @@
-# Jet Browser
+<h1 align="center">Jet Browser</h1>
 
 <p align="center"><strong>Un runtime de navegador pequeño y abierto para agentes web.</strong><br>WPE WebKit, entrada nativa, automatización determinista y un protocolo JSONL integrable.</p>
 
-![Runtime de navegador open source Jet Browser](./docs/assets/jet-browser-banner.png)
+<p align="center">
+  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Runtime de navegador open source Jet Browser">
+</p>
 
 <p align="center"><a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · Español · <a href="./README.pt-BR.md">Português</a></p>
 

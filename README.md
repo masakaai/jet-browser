@@ -1,21 +1,25 @@
-# Jet Browser
+<h1 align="center">Jet Browser</h1>
 
 <p align="center">
   <strong>A small, open browser runtime for web agents.</strong><br>
   WPE WebKit, native input, deterministic automation, and an embeddable JSONL protocol.
 </p>
 
-![Jet Browser open-source browser runtime](./docs/assets/jet-browser-banner.png)
+<p align="center">
+  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser open-source browser runtime">
+</p>
 
 <p align="center">
   English · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a>
 </p>
 
-![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-292622?style=flat-square)
-![Rust stable](https://img.shields.io/badge/Rust-stable-292622?style=flat-square)
-![WPE WebKit 2.54](https://img.shields.io/badge/WPE%20WebKit-2.54-eeb28a?style=flat-square)
-![License](https://img.shields.io/badge/license-Apache--2.0-eeb28a?style=flat-square)
-[![CI](https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/masakaai/jet-browser/actions/workflows/ci.yml)
+<p align="center">
+  <img alt="Node.js 24+" src="https://img.shields.io/badge/Node.js-24%2B-292622?style=flat-square">
+  <img alt="Rust stable" src="https://img.shields.io/badge/Rust-stable-292622?style=flat-square">
+  <img alt="WPE WebKit 2.54" src="https://img.shields.io/badge/WPE%20WebKit-2.54-e87532?style=flat-square">
+  <img alt="Apache-2.0 license" src="https://img.shields.io/badge/license-Apache--2.0-e87532?style=flat-square">
+  <a href="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg"></a>
+</p>
 
 Jet Browser packages a real WPE WebKit browser and a Rust WebDriver bridge into a self-contained runtime for agents. Run one isolated session per container, send ordered JSON commands over standard input, and receive machine-readable results over standard output.
 
