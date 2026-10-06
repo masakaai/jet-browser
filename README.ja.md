@@ -1,41 +1,57 @@
 # Jet Browser
 
-<p align="center"><strong>Web エージェント向けの実ブラウザー基盤。</strong><br>WPE WebKit セッション、人による操作引き継ぎ、永続状態、リアルタイムの直接データ経路。</p>
+<p align="center"><strong>Web エージェント向けの小さなオープンソース・ブラウザーランタイム。</strong><br>WPE WebKit、ネイティブ入力、決定論的自動化、組み込み可能な JSONL プロトコル。</p>
+
+![Jet Browser オープンソース・ブラウザーランタイム](./docs/assets/jet-browser-banner.png)
 
 <p align="center"><a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · 日本語 · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a></p>
 
-Jet Browser は MASAKA のブラウザーランタイムです。分離された WPE WebKit セッションをエージェントに提供し、同じセッションを人が監視・操作した後にエージェントへ戻せます。プレビューと入力はセッション専用 WebSocket を通り、Vercel、Supabase Realtime、Postgres は対話のホットパスに入りません。
+Jet Browser は実際の WPE WebKit ブラウザーと Rust WebDriver ブリッジを、自己完結型のエージェントランタイムとして提供します。コンテナーごとに分離されたセッションを 1 つ実行し、標準入力へ順序付き JSON コマンドを送り、標準出力から機械可読な結果を受け取ります。
 
-![人が操作を引き継げる MASAKA Visual セッション](./docs/assets/live-session.png)
-
-## 主な機能
-
-- WPE WebKit 2.54 と Rust WebDriver ブリッジ
-- 起動前に選ぶ Visual フレームまたはセマンティック Live DOM
-- ポインター、キーボード、タッチ、ホイール、ドラッグ、ナビゲーション、タブ
-- 古い制御入力を拒否する agent/human epoch fencing
-- Cookie、local/session storage、IndexedDB、CacheStorage の暗号化保存
-- リージョン別ワーカープール、需要連動スケーリング、サーバー側精算
+アカウント、API キー、データベース、ホスト型コントロールプレーンは不要です。
 
 ## クイックスタート
 
-Node.js 24+ と Dashboard で発行したサーバー用 API キーが必要です。
+Docker と Node.js 24+ が必要です。ネットワークを無効化したコンテナー内で、作成、ローカルページの表示、ネイティブ入力、DOM 検証、スクリーンショット、終了までを実行します。
 
-```bash
+~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
+npm run standalone
+~~~
+
+Docker だけで利用する場合：
+
+~~~bash
+docker build -f Dockerfile.standalone -t jet-browser:local .
+printf '%s\n' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
+  '{"op":"navigate","url":"data:text/html,<title>Jet Browser</title><h1>ready</h1>"}' \
+  '{"op":"title"}' \
+  '{"op":"close"}' |
+docker run --rm -i --network=none jet-browser:local
+~~~
+
+## オープンソースのコア
+
+- WPE WebKit 2.54 とヘッドレス Wayland コンポジター
+- Rust 製の順序付き JSONL 自動化ブリッジ
+- ポインター、キーボード、テキスト、タッチ、ホイール、ドラッグ、ナビゲーション、タブ
+- タイトル、URL、JavaScript 実行、スクリーンショット、セマンティック DOM
+- 明示的なプロファイルパスによる Cookie と Web Storage の入出力
+- 任意で利用できる Visual frame、Live DOM、有人操作、分散 Worker コンポーネント
+
+コア経路は Agent → JSONL → jet-wpe → WebDriver → WPE WebKit です。スタンドアロンモードにアプリケーションサーバー、データベースクライアント、トンネル、決済 SDK、特定のエージェントフレームワークは含まれません。
+
+[アーキテクチャ](./docs/architecture.md)と[スタンドアロンデモ](./docs/demo.md)も参照してください。
+
+## 開発と検証
+
+~~~bash
 npm ci
-export MASAKA_API_KEY=msk_your_server_key
-npm run demo
-```
+npm test
+cargo test --all-targets
+docker build -f Dockerfile.standalone -t jet-browser:local .
+~~~
 
-デモは時間制限付きセッションを 1 つ作成し、実ページのタイトルを読み、`finally` で必ず停止します。
-
-```bash
-npm run verify
-npm run benchmark -- --providers=masaka,browser-use,kernel --runs=5
-```
-
-比較ハーネスは同じ URL、viewport、逐次実行、クリーンアップ規則を使います。資格情報がないプロバイダーは `skipped` と記録されます。[アーキテクチャ](./docs/architecture.md)、[ベンチマーク](./docs/benchmarks.md)、[比較](./docs/comparison.md)、[デモ](./docs/demo.md)を参照してください。
-
-Jet Browser は LLM エージェントフレームワークではなくブラウザー基盤です。現在の公開インターフェースは MASAKA の session/action API とプレビュー/入力プロトコルで、汎用 CDP endpoint ではありません。
+Jet Browser はブラウザー基盤であり、LLM やエージェントフレームワークではありません。[Apache License 2.0](./LICENSE) で提供されます。

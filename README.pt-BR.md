@@ -1,41 +1,57 @@
 # Jet Browser
 
-<p align="center"><strong>Infraestrutura de navegador real para agentes web.</strong><br>Sessões WPE WebKit, controle humano, estado persistente e um caminho de dados direto em tempo real.</p>
+<p align="center"><strong>Um runtime de navegador pequeno e aberto para agentes web.</strong><br>WPE WebKit, entrada nativa, automação determinística e um protocolo JSONL incorporável.</p>
+
+![Runtime de navegador open source Jet Browser](./docs/assets/jet-browser-banner.png)
 
 <p align="center"><a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · Português</p>
 
-Jet Browser é o runtime de navegador da MASAKA. Ele executa sessões WPE WebKit isoladas para agentes e permite que uma pessoa observe, assuma o controle e devolva a mesma sessão ao agente. A visualização e as entradas usam WebSockets vinculados à sessão; Vercel, Supabase Realtime e Postgres ficam fora do caminho interativo crítico.
+O Jet Browser reúne um navegador WPE WebKit real e uma ponte WebDriver em Rust como runtime autônomo para agentes. Cada contêiner executa uma sessão isolada, recebe comandos JSON ordenados pela entrada padrão e devolve resultados legíveis por máquina pela saída padrão.
 
-![Sessão MASAKA Visual com controle humano](./docs/assets/live-session.png)
-
-## Recursos
-
-- WPE WebKit 2.54 com bridge WebDriver em Rust
-- Frames Visual ou Live DOM semântico, escolhidos antes da inicialização
-- Ponteiro, teclado, toque, roda, arrastar, navegação e abas
-- Epoch fencing entre agente e pessoa contra entradas antigas
-- Cookies, local/session storage, IndexedDB e CacheStorage criptografados
-- Pools regionais, escala por demanda e liquidação no servidor
+Não requer conta, chave de API, banco de dados nem plano de controle hospedado.
 
 ## Início rápido
 
-É necessário Node.js 24+ e uma API key de servidor criada no Dashboard.
+Requer Docker e Node.js 24+. O teste executa de verdade a criação do navegador, uma página local, entrada nativa, validação do DOM, captura de tela e encerramento em um contêiner sem rede.
 
-```bash
+~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
+npm run standalone
+~~~
+
+Somente com Docker:
+
+~~~bash
+docker build -f Dockerfile.standalone -t jet-browser:local .
+printf '%s\n' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
+  '{"op":"navigate","url":"data:text/html,<title>Jet Browser</title><h1>ready</h1>"}' \
+  '{"op":"title"}' \
+  '{"op":"close"}' |
+docker run --rm -i --network=none jet-browser:local
+~~~
+
+## Núcleo open source
+
+- WPE WebKit 2.54 e compositor Wayland headless
+- ponte de automação JSONL ordenada escrita em Rust
+- ponteiro, teclado, texto, toque, rolagem, arrasto, navegação e abas
+- título, URL, avaliação JavaScript, capturas e DOM semântico
+- importação/exportação de cookies e Web Storage por caminhos explícitos de perfil
+- componentes opcionais de Visual frame, Live DOM, controle humano e Worker distribuído
+
+O caminho principal é Agent → JSONL → jet-wpe → WebDriver → WPE WebKit. O modo autônomo não instala servidor de aplicação, cliente de banco de dados, túnel, SDK de pagamentos nem um framework de agente específico.
+
+Veja [Arquitetura](./docs/architecture.md) e [Demo autônoma](./docs/demo.md).
+
+## Desenvolvimento e verificação
+
+~~~bash
 npm ci
-export MASAKA_API_KEY=msk_your_server_key
-npm run demo
-```
+npm test
+cargo test --all-targets
+docker build -f Dockerfile.standalone -t jet-browser:local .
+~~~
 
-A demo cria uma única sessão limitada, lê o título real da página e sempre encerra a sessão em `finally`.
-
-```bash
-npm run verify
-npm run benchmark -- --providers=masaka,browser-use,kernel --runs=5
-```
-
-O benchmark usa a mesma URL, viewport, execução sequencial e regra de limpeza. Um provedor sem credenciais é registrado como `skipped`. Consulte [Arquitetura](./docs/architecture.md), [Benchmarks](./docs/benchmarks.md), [Comparação](./docs/comparison.md) e [Demo](./docs/demo.md).
-
-Jet Browser é infraestrutura de navegador, não um framework de agente LLM. A interface pública atual é a API session/action da MASAKA e o protocolo de visualização/entrada, não um endpoint CDP genérico.
+Jet Browser é infraestrutura de navegador, não um LLM nem um framework de agentes. Licenciado sob a [Apache License 2.0](./LICENSE).

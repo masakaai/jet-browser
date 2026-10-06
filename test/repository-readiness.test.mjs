@@ -10,10 +10,10 @@ const locales = ['zh-CN', 'ja', 'ko', 'de', 'fr', 'es', 'pt-BR'];
 test('public README has portable links and no private machine paths', async () => {
   const readme = await readFile(resolve(root, 'README.md'), 'utf8');
   assert.doesNotMatch(readme, /\/Users\/|\/data0\/|deeptensor-wpe-/);
-  assert.match(readme, /npm run demo/);
-  assert.match(readme, /npm run benchmark/);
+  assert.match(readme, /npm run standalone/);
+  assert.match(readme, /Dockerfile\.standalone/);
   for (const locale of locales) await access(resolve(root, `README.${locale}.md`));
-  for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'docs/kernel-open-source-review.md', 'examples/quickstart.mjs', 'benchmarks/run.mjs', 'sdk/tools.mjs', 'sdk/transport.mjs']) await access(resolve(root, path));
+  for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'Dockerfile.standalone', 'scripts/standalone-smoke.mjs', 'sdk/tools.mjs']) await access(resolve(root, path));
 });
 
 test('package and default worker versions stay aligned', async () => {

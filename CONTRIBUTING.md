@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for improving Jet Browser. Keep changes small enough to review and preserve the boundary between the control plane and the real-time data plane.
+Thanks for improving Jet Browser. Keep changes small enough to review and preserve the boundary between browser execution and optional orchestration.
 
 ## Local checks
 
@@ -15,7 +15,7 @@ Add a regression test for protocol, state, input, networking, scaling, or lifecy
 
 ## Design rules
 
-- Keep Supabase, Postgres, object storage, and request/response polling outside the input and preview hot path.
+- Keep databases, object storage, hosted APIs, and request/response polling outside the input and preview hot path.
 - Treat tickets and control tokens as scoped capabilities; never log their values.
 - Preserve ordered reliable delivery for clicks and keys. Coalesce replaceable pointer movement and wheel deltas under pressure.
 - Validate outbound destinations after DNS resolution and on redirects.

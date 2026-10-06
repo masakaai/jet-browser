@@ -10,16 +10,16 @@ import {
 test('framework-neutral browser tools keep stable identities and safe defaults', () => {
   const catalog = compileToolCatalog(jetToolsets.browser());
   assert.deepEqual(catalog.map(tool => tool.identity), [
-    'masaka.browser.snapshot.v1',
-    'masaka.browser.navigate.v1',
-    'masaka.browser.click.v1',
-    'masaka.browser.type.v1',
-    'masaka.browser.press.v1',
-    'masaka.browser.scroll.v1',
-    'masaka.browser.list-tabs.v1',
-    'masaka.browser.new-tab.v1',
-    'masaka.browser.switch-tab.v1',
-    'masaka.browser.close-tab.v1'
+    'jet.browser.snapshot.v1',
+    'jet.browser.navigate.v1',
+    'jet.browser.click.v1',
+    'jet.browser.type.v1',
+    'jet.browser.press.v1',
+    'jet.browser.scroll.v1',
+    'jet.browser.list-tabs.v1',
+    'jet.browser.new-tab.v1',
+    'jet.browser.switch-tab.v1',
+    'jet.browser.close-tab.v1'
   ]);
   assert.equal(catalog.some(tool => tool.name === 'browser_evaluate'), false);
   assert.equal(Object.isFrozen(catalog), true);
@@ -72,6 +72,6 @@ test('bound tools propagate cancellation to the client operation', async () => {
 test('catalog namespaces preserve identity while producing deterministic names', () => {
   const catalog = compileToolCatalog([jetTools.snapshot(), jetTools.navigate()], { namespace: 'research' });
   assert.deepEqual(catalog.map(tool => tool.name), ['research_browser_snapshot', 'research_browser_navigate']);
-  assert.deepEqual(catalog.map(tool => tool.identity), ['masaka.browser.snapshot.v1', 'masaka.browser.navigate.v1']);
+  assert.deepEqual(catalog.map(tool => tool.identity), ['jet.browser.snapshot.v1', 'jet.browser.navigate.v1']);
   assert.throws(() => compileToolCatalog([jetTools.snapshot()], { namespace: 'not valid' }), /namespace/);
 });

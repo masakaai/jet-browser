@@ -1,69 +1,77 @@
-# Demo guide
+# Standalone demo
 
-The repository demo is deliberately small and safe: it creates one browser, verifies a real page, and always stops the session.
+The standalone smoke test is a real end-to-end browser check with no account, API key, database, or network dependency.
 
 ## Run it
 
-Create a server API key in the MASAKA dashboard, then:
+Requirements: Docker and Node.js 24+.
 
-```bash
-npm ci
-export MASAKA_API_KEY=msk_your_server_key
-npm run demo
-```
+~~~bash
+npm run standalone
+~~~
 
-Optional arguments:
+The command:
 
-```bash
-npm run demo -- \
-  --url=https://arxiv.org/ \
-  --region=overseas \
-  --max-seconds=120
-```
+1. builds Dockerfile.standalone;
+2. starts the container with networking disabled and bounded CPU, memory, process count, and shared memory;
+3. creates a real WPE WebKit session;
+4. opens a data URL served entirely inside the browser;
+5. focuses an input and types through the native input operation;
+6. verifies that the DOM received the text;
+7. captures a PNG screenshot;
+8. closes the WebDriver session.
 
-The output is a single JSON object with the session ID, assigned worker, region, startup time, URL, and title. It does not print the API key or a direct ticket.
+On success it prints a JSON result containing the title, verified input value, and screenshot byte count.
 
-## Use the signed-in client
+To reuse an already-built image:
 
-Browser and mobile applications should use `MasakaBrowserClient` from `sdk/browser.mjs`, not the server key client. Provide a short-lived account access token and current project ID, create the session, attach the preview, then take control only when the user asks.
+~~~bash
+docker build -f Dockerfile.standalone -t jet-browser:local .
+npm run standalone:smoke
+~~~
 
-```js
-import { MasakaBrowserClient } from '../sdk/browser.mjs';
+Set JET_BROWSER_IMAGE to use a different local image tag.
 
-const browser = new MasakaBrowserClient({
-  accessToken: session.access_token,
-  projectId
-});
+## Drive the protocol directly
 
-const created = await browser.create({
-  previewMode: 'visual',
-  region: 'overseas',
-  maxSeconds: 120
-});
-const running = await browser.waitForReady(created.id);
+The container reads one command per line from standard input and writes one response per line to standard output.
 
-const preview = await browser.preview(running.id, {
-  onFrame: png => renderFrame(png),
-  onState: state => renderLatency(state)
-});
+~~~bash
+printf '%s\n' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
+  '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
+  '{"op":"title"}' \
+  '{"op":"screenshot"}' \
+  '{"op":"close"}' |
+docker run --rm -i --network=none --cap-drop=ALL \
+  --env=JET_BROWSER_SMOKE=1 \
+  --cap-add=SETUID --cap-add=SETGID \
+  --security-opt=systempaths=unconfined \
+  --security-opt=seccomp=./seccomp_profile.json \
+  --security-opt=no-new-privileges --memory=1g --cpus=2 \
+  --pids-limit=256 --shm-size=256m jet-browser:local
+~~~
 
-await browser.takeControl(running.id);
-await browser.pointer(running.id, { phase: 'down', x: 320, y: 240 });
-await browser.pointer(running.id, { phase: 'up', x: 320, y: 240 });
-await browser.releaseControl(running.id);
+Responses use this shape:
 
-await preview.close();
-await browser.stop(running.id);
-```
+~~~json
+{"ok":true,"value":null}
+{"ok":true,"value":"Jet Browser"}
+~~~
 
-For a product demo, show the full lifecycle rather than a screenshot alone:
+A failed command returns ok=false and an error message. Treat a failure as belonging to that command; do not silently reorder or retry state-changing input.
 
-1. Launch a Visual session and display the MASAKA loading state.
-2. Show the first real frame and measured preview age.
-3. Let the agent open a page or search.
-4. Take control, type or drag, then release control.
-5. Let the agent continue in the same tab and state.
-6. Create, switch, and close a second tab.
-7. Stop the session and show final usage.
+## Embed it
 
-Do not demo against personal accounts or irreversible checkout flows. Use a dedicated test account and pages where actions are safe.
+Use the same transport from any language:
+
+1. start one container or process per mutually untrusted session;
+2. retain stdin and stdout for the lifetime of the session;
+3. send only one complete JSON object per input line;
+4. pair output lines with pending commands in order;
+5. set per-command and whole-session timeouts;
+6. issue close in finally/defer and then terminate the process tree.
+
+The reference implementation is [scripts/standalone-smoke.mjs](../scripts/standalone-smoke.mjs). It uses only Node.js built-ins and Docker; it does not install the repository’s JavaScript dependencies. Its loopback fixture server starts only for this smoke mode and remains unreachable outside the network-disabled container.
+
+WPE WebKit uses bubblewrap for its browser sandbox. The checked-in seccomp profile allows the namespace syscalls it needs, while the container remains non-privileged and receives no SYS_ADMIN capability.

@@ -62,68 +62,68 @@ function aliased(specificationValue, options = {}) {
 
 const definitions = {
   snapshot: specification({
-    identity: 'masaka.browser.snapshot.v1', name: 'browser_snapshot', operation: 'snapshot', mutates: false,
+    identity: 'jet.browser.snapshot.v1', name: 'browser_snapshot', operation: 'snapshot', mutates: false,
     description: 'Return the current browser snapshot and tab state. Refresh after navigation before relying on prior page state.',
     inputSchema: emptySchema, validate: input => shape(input)
   }),
   navigate: specification({
-    identity: 'masaka.browser.navigate.v1', name: 'browser_navigate', operation: 'navigate', mutates: true,
+    identity: 'jet.browser.navigate.v1', name: 'browser_navigate', operation: 'navigate', mutates: true,
     description: 'Navigate the active tab to an HTTP(S) URL.',
     inputSchema: { type: 'object', properties: { url: { type: 'string', format: 'uri' } }, required: ['url'], additionalProperties: false },
     validate(input) { const value = shape(input, ['url']); return { url: webUrl(value.url) }; }
   }),
   click: specification({
-    identity: 'masaka.browser.click.v1', name: 'browser_click', operation: 'click', mutates: true,
+    identity: 'jet.browser.click.v1', name: 'browser_click', operation: 'click', mutates: true,
     description: 'Click viewport coordinates from the latest visual frame or snapshot.',
     inputSchema: { type: 'object', properties: coordinateProperties, required: ['x', 'y'], additionalProperties: false },
     validate(input) { const value = shape(input, ['x', 'y']); return { x: coordinate(value.x, 'x'), y: coordinate(value.y, 'y') }; }
   }),
   drag: specification({
-    identity: 'masaka.browser.drag.v1', name: 'browser_drag', operation: 'drag', mutates: true,
+    identity: 'jet.browser.drag.v1', name: 'browser_drag', operation: 'drag', mutates: true,
     description: 'Drag from one viewport coordinate to another.',
     inputSchema: { type: 'object', properties: { ...coordinateProperties, to_x: coordinateProperties.x, to_y: coordinateProperties.y }, required: ['x', 'y', 'to_x', 'to_y'], additionalProperties: false },
     validate(input) { const value = shape(input, ['x', 'y', 'to_x', 'to_y']); return { x: coordinate(value.x, 'x'), y: coordinate(value.y, 'y'), to_x: coordinate(value.to_x, 'to_x'), to_y: coordinate(value.to_y, 'to_y') }; }
   }),
   type: specification({
-    identity: 'masaka.browser.type.v1', name: 'browser_type', operation: 'type', mutates: true,
+    identity: 'jet.browser.type.v1', name: 'browser_type', operation: 'type', mutates: true,
     description: 'Type literal text into the active element.',
     inputSchema: { type: 'object', properties: { text: { type: 'string', minLength: 1, maxLength: 20000 } }, required: ['text'], additionalProperties: false },
     validate(input) { const value = shape(input, ['text']); return { text: text(value.text, 'text') }; }
   }),
   press: specification({
-    identity: 'masaka.browser.press.v1', name: 'browser_press', operation: 'press', mutates: true,
+    identity: 'jet.browser.press.v1', name: 'browser_press', operation: 'press', mutates: true,
     description: 'Press one key or supported key chord.',
     inputSchema: { type: 'object', properties: { key: { type: 'string', minLength: 1, maxLength: 100 } }, required: ['key'], additionalProperties: false },
     validate(input) { const value = shape(input, ['key']); return { key: text(value.key, 'key', { maximum: 100 }) }; }
   }),
   scroll: specification({
-    identity: 'masaka.browser.scroll.v1', name: 'browser_scroll', operation: 'scroll', mutates: true,
+    identity: 'jet.browser.scroll.v1', name: 'browser_scroll', operation: 'scroll', mutates: true,
     description: 'Scroll the active page by a signed pixel delta.',
     inputSchema: { type: 'object', properties: { delta: { type: 'integer', minimum: -100000, maximum: 100000 } }, required: ['delta'], additionalProperties: false },
     validate(input) { const value = shape(input, ['delta']); return { delta: delta(value.delta) }; }
   }),
   listTabs: specification({
-    identity: 'masaka.browser.list-tabs.v1', name: 'browser_list_tabs', operation: 'tabs', mutates: false,
+    identity: 'jet.browser.list-tabs.v1', name: 'browser_list_tabs', operation: 'tabs', mutates: false,
     description: 'List browser tabs and the active tab.', inputSchema: emptySchema, validate: input => shape(input)
   }),
   newTab: specification({
-    identity: 'masaka.browser.new-tab.v1', name: 'browser_new_tab', operation: 'newTab', mutates: true,
+    identity: 'jet.browser.new-tab.v1', name: 'browser_new_tab', operation: 'newTab', mutates: true,
     description: 'Open a new browser tab.', inputSchema: emptySchema, validate: input => shape(input)
   }),
   switchTab: specification({
-    identity: 'masaka.browser.switch-tab.v1', name: 'browser_switch_tab', operation: 'switchTab', mutates: true,
+    identity: 'jet.browser.switch-tab.v1', name: 'browser_switch_tab', operation: 'switchTab', mutates: true,
     description: 'Switch to a tab handle returned by browser_list_tabs.',
     inputSchema: { type: 'object', properties: { handle: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['handle'], additionalProperties: false },
     validate(input) { const value = shape(input, ['handle']); return { handle: text(value.handle, 'handle', { maximum: 200 }) }; }
   }),
   closeTab: specification({
-    identity: 'masaka.browser.close-tab.v1', name: 'browser_close_tab', operation: 'closeTab', mutates: true,
+    identity: 'jet.browser.close-tab.v1', name: 'browser_close_tab', operation: 'closeTab', mutates: true,
     description: 'Close a tab handle returned by browser_list_tabs.',
     inputSchema: { type: 'object', properties: { handle: { type: 'string', minLength: 1, maxLength: 200 } }, required: ['handle'], additionalProperties: false },
     validate(input) { const value = shape(input, ['handle']); return { handle: text(value.handle, 'handle', { maximum: 200 }) }; }
   }),
   evaluate: specification({
-    identity: 'masaka.browser.evaluate.v1', name: 'browser_evaluate', operation: 'evaluate', mutates: true,
+    identity: 'jet.browser.evaluate.v1', name: 'browser_evaluate', operation: 'evaluate', mutates: true,
     description: 'Execute JavaScript in the active page. Include only for trusted developer agents.',
     inputSchema: { type: 'object', properties: { expression: { type: 'string', minLength: 1, maxLength: 50000 } }, required: ['expression'], additionalProperties: false },
     validate(input) { const value = shape(input, ['expression']); return { expression: text(value.expression, 'expression', { maximum: 50_000 }) }; }

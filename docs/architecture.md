@@ -1,87 +1,83 @@
 # Architecture
 
-Jet Browser separates durable control-plane work from latency-sensitive browser traffic.
+Jet Browser has a self-contained core and optional distributed components. The core has no hosted-service dependency.
 
-## Request paths
+## Standalone core
 
-```mermaid
-flowchart TB
-  subgraph Control[Control plane — durable and asynchronous]
-    Client[Agent / dashboard] --> API[Vercel API]
-    API --> Auth[Identity + project authorization]
-    API --> DB[(Postgres)]
-    API --> Billing[Usage and settlement]
-    Scheduler[Regional scheduler] --> DB
-  end
+~~~mermaid
+flowchart LR
+  Host[Agent, test, or supervisor] <-->|JSONL stdin/stdout| Bridge[jet-wpe Rust bridge]
+  Bridge <-->|WebDriver on loopback| Driver[WPEWebDriver]
+  Driver <--> Browser[WPE WebKit]
+  Browser <--> Compositor[Weston headless compositor]
+~~~
 
-  subgraph Data[Data plane — persistent real-time connections]
-    Viewer[Viewer / controller] <-->|session WSS| Router[Regional router]
-    Router <-->|session WSS| Worker[Jet Browser worker]
-    Worker <--> Bridge[Rust WebDriver bridge]
-    Bridge <--> WPE[WPE WebKit]
-  end
+One container owns one isolated browser session. The container entrypoint starts the compositor and WPEWebDriver, waits for the local status endpoint, and then exposes the Rust process on standard input and output. The process does not need a user account, API key, database, object storage, tunnel, or public network.
 
-  API -->|short-lived scoped ticket| Viewer
-  Worker -.->|batched action + usage records| DB
-```
+The JSONL boundary makes the runtime usable from any language that can supervise a subprocess. Commands remain ordered because one process reads and writes one line at a time.
 
-The real-time path does not synchronously call Vercel, Supabase Realtime, Postgres, or object storage for each frame or input. The control plane creates the session and issues a short-lived ticket; the viewer then connects to the assigned regional router.
+## Optional distributed deployment
 
-Each worker exposes aggregate Prometheus metrics on `GET /metrics` only when a dedicated `MASAKA_METRICS_TOKEN` is configured, and requires that token as a bearer credential. The route remains protected even when the data-plane listener is forwarded by a standalone tunnel. Metrics intentionally omit session, account, project, URL, and worker labels; operators receive queue/buffer/failure signals without turning user identifiers into a telemetry surface.
+Larger deployments can place an application-specific coordinator around the same runtime.
 
-## Session lifecycle
+~~~mermaid
+flowchart LR
+  Client[Agent or viewer] <-->|persistent preview and input| Router[Data router]
+  Router <-->|session-bound stream| Worker[Jet Browser worker]
+  Coordinator[Coordinator] -->|lease and lifecycle| Worker
+  Worker --> Bridge[jet-wpe]
+  Bridge --> WPE[WPE WebKit]
+  Worker -.->|batched usage and action records| Coordinator
+~~~
 
-```mermaid
+The coordinator implementation is deliberately not part of the standalone contract. An operator can use any identity provider, scheduler, database, storage layer, billing system, or container platform. Those systems should stay outside the latency-sensitive preview and input path.
+
+## Browser lifecycle
+
+~~~mermaid
 sequenceDiagram
-  participant C as Client
-  participant A as Control plane
-  participant W as Regional worker
-  participant B as WPE browser
+  participant H as Host process
+  participant J as jet-wpe
+  participant D as WPEWebDriver
+  participant B as WPE WebKit
 
-  C->>A: Create session (region, preview mode, TTL)
-  A-->>W: Queued lease
-  W->>B: Start isolated browser slot
-  W->>A: Running + route metadata
-  C->>A: Request direct ticket
-  A-->>C: Signed session ticket
-  C->>W: Authorize persistent WSS
-  W-->>C: Preview / tabs / state
-  C->>W: Ordered input with sequence
-  W->>B: Apply input
-  W-->>C: ACK
-  W-->>A: Asynchronous usage batch
-  C->>A: Stop
-  W->>B: Export state and terminate
-  W->>A: Final settlement
-```
+  H->>J: create
+  J->>D: WebDriver session
+  D->>B: launch isolated browser
+  H->>J: navigate / input / evaluate
+  J->>D: ordered commands
+  D->>B: native browser actions
+  B-->>J: result
+  J-->>H: one JSON response line
+  H->>J: close
+  J->>D: delete session
+~~~
+
+The host must close sessions in a finally/defer block and enforce its own wall-clock timeout. Terminating the container also terminates the compositor, driver, and browser process tree.
 
 ## Preview modes
 
-Preview mode is chosen before launch so the worker does not pay for two capture systems.
+The optional worker supports two preview strategies. Choose one before launch so a session does not pay for two capture systems.
 
-- **Visual** sends changed PNG frames captured from the compositor. Static frames are not repeated. It is the compatibility-first default for arbitrary sites.
-- **Live DOM** sends a semantic DOM/CSSOM snapshot followed by mutations. It can use less steady-state bandwidth but cannot reproduce every canvas, media, cross-origin frame, or browser-native surface.
+- **Visual** sends changed PNG frames captured from the compositor. Unchanged frames are not repeated. This is the compatibility-first mode for arbitrary sites.
+- **Live DOM** sends a semantic DOM/CSSOM snapshot followed by mutations. It can reduce steady-state bandwidth but cannot perfectly reproduce every canvas, media element, cross-origin frame, or browser-native surface.
 
-Clients must acknowledge reliable semantic snapshots. Both modes apply bounded queues and backpressure; input acknowledgements have priority over replaceable preview work.
+Both modes use bounded queues and backpressure. Reliable input acknowledgements have priority over replaceable preview work.
 
 ## Input and control
 
-The worker maintains one monotonically increasing control epoch. Taking or releasing control advances the epoch, so commands from a stale agent or viewer cannot mutate the new controller's session. Reliable actions remain ordered. Replaceable pointer movement and wheel deltas may be coalesced under pressure.
+The runtime supports pointer phases, keyboard events, text, touch mapping, wheel, drag, navigation, snapshots, tab create/switch/close, downloads, and scoped credential fill.
 
-Supported operations include pointer phases, keyboard events, text, touch mapping, wheel, drag, navigation, snapshots, tab create/switch/close, downloads, and exact-hostname credential fill.
+A distributed controller can maintain a monotonically increasing control epoch. Taking or releasing control advances the epoch so commands from a stale agent or viewer cannot mutate a session after ownership changes. Reliable actions stay ordered; replaceable pointer movements and wheel deltas may be coalesced under pressure.
 
 ## State and isolation
 
-Each session has its own runtime directory, Wayland socket, browser process, lease, and direct connection scope. Persisted profiles are owner- and project-bound, encrypted before storage, and subject to retention. The interoperable profile set currently includes cookies, local/session storage, IndexedDB records, and CacheStorage.
+A standalone instance should receive a dedicated container, runtime directory, Wayland socket, browser process, and profile path. Do not share writable profile paths between simultaneously running instances.
 
-Browser processes receive a minimal environment without database, service-role, payment, or ticket-signing secrets. Outbound destinations are checked after DNS resolution; loopback, link-local, private, metadata, and reserved ranges are blocked.
+Profile helpers can export and import cookies, local/session storage, IndexedDB records, and CacheStorage. The embedding application is responsible for encryption, ownership checks, retention, and access control before persisting that data.
 
-## Scaling and regions
+Browser processes should receive a minimal environment. Keep application credentials, database keys, payment secrets, and signing keys out of the browser container. If outbound networking is enabled, apply DNS/IP validation and an egress policy at the supervisor or network boundary.
 
-Workers register one immutable region and claim only matching sessions. The autoscaler computes demand from queued and active sessions, keeps warm spare capacity, respects real host CPU/memory/launch headroom, and drains idle workers before stopping them. Capacity is still bounded by the physical host and configured safety budgets; an autoscaler is not evidence of unlimited concurrency.
+## Protocol boundary
 
-## Current protocol boundary
-
-The public integration surface is the MASAKA session/action SDK plus the signed-in direct preview/input protocol. Jet Browser does not currently publish a general CDP endpoint. Chromium-only extensions, Chrome policies, and CDP-specific tooling therefore require a separate Chromium execution tier rather than pretending WPE implements those contracts.
-
-The rationale and exact upstream revisions behind recent SDK, runtime-metrics, and tool-catalog decisions are recorded in [Kernel open-source design review](./kernel-open-source-review.md).
+The open core exposes ordered browser actions over JSONL. It does not claim to implement Chromium-only extensions, enterprise policies, or a general CDP endpoint. Software that requires those contracts needs a separate Chromium runtime.

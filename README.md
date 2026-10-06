@@ -1,16 +1,11 @@
 # Jet Browser
 
 <p align="center">
-  <strong>Real browser infrastructure for web agents.</strong><br>
-  WPE WebKit sessions, human takeover, persistent state, and a direct real-time data plane.
+  <strong>A small, open browser runtime for web agents.</strong><br>
+  WPE WebKit, native input, deterministic automation, and an embeddable JSONL protocol.
 </p>
 
-<p align="center">
-  <a href="https://masaka-ai.vercel.app">Website</a> ·
-  <a href="https://masaka-ai.vercel.app/dashboard.html">Dashboard</a> ·
-  <a href="https://masaka-ai.vercel.app/docs.html">Documentation</a> ·
-  <a href="./docs/benchmarks.md">Benchmarks</a>
-</p>
+![Jet Browser open-source browser runtime](./docs/assets/jet-browser-banner.png)
 
 <p align="center">
   English · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a>
@@ -19,124 +14,131 @@
 ![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-292622?style=flat-square)
 ![Rust stable](https://img.shields.io/badge/Rust-stable-292622?style=flat-square)
 ![WPE WebKit 2.54](https://img.shields.io/badge/WPE%20WebKit-2.54-eeb28a?style=flat-square)
+![License](https://img.shields.io/badge/license-Apache--2.0-eeb28a?style=flat-square)
 [![CI](https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/masakaai/jet-browser/actions/workflows/ci.yml)
 
-Jet Browser is the browser runtime behind MASAKA. It runs isolated WPE WebKit sessions for agents and lets a person watch, take control, and return the same session to the agent. Preview and input use session-bound WebSockets; Vercel, Supabase Realtime, and Postgres stay outside the interaction hot path.
+Jet Browser packages a real WPE WebKit browser and a Rust WebDriver bridge into a self-contained runtime for agents. Run one isolated session per container, send ordered JSON commands over standard input, and receive machine-readable results over standard output.
 
-![A running MASAKA Visual session with human takeover](./docs/assets/live-session.png)
+No account, API key, database, or hosted control plane is required.
 
-## What it provides
+## Run the verified standalone flow
 
-| Capability | Implementation |
-| --- | --- |
-| Real browser | WPE WebKit 2.54 with a Rust WebDriver bridge |
-| Live preview | Visual frames or semantic Live DOM, selected before launch |
-| Human takeover | Pointer, keyboard, touch, wheel, drag, navigation, and tabs |
-| Agent handoff | Epoch-fenced agent/human control prevents stale input |
-| Persistent state | Encrypted cookies, local/session storage, IndexedDB, and CacheStorage |
-| Downloads | Bounded download lifecycle, metadata, and authenticated retrieval |
-| Network safety | DNS/IP validation blocks loopback, link-local, private, and reserved egress |
-| Scale and regions | Demand-driven regional worker pools with warm spare capacity |
-| Billing integrity | Session leases, heartbeats, bounded runtime, and server-side settlement |
+Requirements: Docker and Node.js 24+. The smoke test builds the image and runs the container with networking disabled. It creates a browser, opens a local page, types through the native input path, verifies the DOM, captures a screenshot, and closes the session.
 
-## Quickstart
-
-Requirements: Node.js 24+, a MASAKA account, a project, and a server-side API key from the dashboard.
-
-```bash
+~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-npm ci
-export MASAKA_API_KEY=msk_your_server_key
-npm run demo
-```
+npm run standalone
+~~~
 
-The demo creates one bounded session, reads the page title, and stops the session in `finally`.
+Successful output includes:
 
-```js
-import { MasakaBrowser } from './sdk/client.mjs';
-
-const browser = new MasakaBrowser({ apiKey: process.env.MASAKA_API_KEY });
-const session = await browser.create({
-  url: 'https://example.com',
-  region: 'overseas',
-  maxSeconds: 120
-});
-
-try {
-  await browser.waitForReady(session.id);
-  const page = await browser.evaluate(session.id, `({
-    title: document.title,
-    url: location.href
-  })`);
-  console.log(page);
-} finally {
-  await browser.stop(session.id);
+~~~json
+{
+  "status": "passed",
+  "network": "disabled",
+  "title": "Jet Browser Ready",
+  "input": "open-source runtime"
 }
-```
+~~~
 
-Use `sdk/browser.mjs` in signed-in web and mobile clients. It exchanges the user's access token for a short-lived session ticket, then connects directly to the assigned worker. Service-role keys and MASAKA API keys must never be bundled into a public client.
+To run the container directly without installing JavaScript dependencies:
 
-For agent frameworks, `sdk/tools.mjs` provides versioned tool identities, JSON Schema declarations, collision checks, and execution binding over one existing session. The default catalog excludes arbitrary JavaScript evaluation. See [Agent tool catalog](./docs/agent-tools.md).
+~~~bash
+docker build -f Dockerfile.standalone -t jet-browser:local .
+
+printf '%s\n' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
+  '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
+  '{"op":"title"}' \
+  '{"op":"close"}' |
+docker run --rm -i --network=none --cap-drop=ALL \
+  --env=JET_BROWSER_SMOKE=1 \
+  --cap-add=SETUID --cap-add=SETGID \
+  --security-opt=systempaths=unconfined \
+  --security-opt=seccomp=./seccomp_profile.json \
+  --security-opt=no-new-privileges --memory=1g --cpus=2 \
+  --pids-limit=256 --shm-size=256m jet-browser:local
+~~~
+
+## What ships
+
+| Capability | Open-source implementation |
+| --- | --- |
+| Real browser | WPE WebKit 2.54 on a headless Wayland compositor |
+| Automation bridge | Rust binary with an ordered line-delimited JSON protocol |
+| Native interaction | Pointer, keyboard, text, touch, wheel, drag, navigation, and tabs |
+| Page inspection | Title, URL, JavaScript evaluation, screenshots, and semantic DOM capture |
+| Session state | Cookie and web-storage import/export helpers with explicit profile paths |
+| Downloads | Bounded download lifecycle and metadata |
+| Live viewing | Visual-frame and Live DOM components for an optional direct data plane |
+| Agent integration | Versioned JSON Schema tool declarations with collision checks |
+
+The standalone image contains only the browser runtime and operating-system libraries it needs. It does not install an application server, JavaScript package tree, database client, tunnel, payment SDK, or vendor agent framework.
 
 ## Architecture
 
-```mermaid
-flowchart LR
-  Agent[Agent or dashboard] -->|create / list / stop| API[MASAKA control plane]
-  API --> DB[(Postgres)]
-  API -->|short-lived ticket| Agent
-  Agent <-->|preview + input WSS| Router[Regional data router]
-  Router <-->|session-bound stream| Worker[Jet Browser worker]
-  Worker --> WPE[WPE WebKit]
-  Worker -.->|batched usage + action log| DB
-```
+~~~text
+agent or test process
+        │  JSONL over stdin/stdout
+        ▼
+    jet-wpe (Rust)
+        │  WebDriver
+        ▼
+  WPE WebKit + Weston
+~~~
 
-Only lifecycle, identity, billing, and asynchronous records use the control plane. Pointer, keyboard, touch, wheel, preview, and acknowledgements stay on the persistent data connection. See [Architecture](./docs/architecture.md).
+This boundary is intentionally small. A local process, container scheduler, CI job, or agent framework can supervise it without adopting a particular control plane. Distributed preview, human takeover, persistence, and scheduling are optional components built around the same runtime; they are not required for standalone use.
 
-## Reproducible benchmarks
+See [Architecture](./docs/architecture.md) and the [standalone demo](./docs/demo.md).
 
-The repository includes one harness and three provider adapters. The harness applies the same target page, viewport, sequential run count, title check, and cleanup rule to MASAKA, Browser Use Cloud, and Kernel.
+## Protocol example
 
-```bash
-# Run every provider whose key is present.
-npm run benchmark -- --providers=masaka,browser-use,kernel --warmups=3 --runs=5
+Each input line is one JSON command. Each output line is one JSON response.
 
-# MASAKA only.
-npm run benchmark -- --providers=masaka --warmups=1 --runs=5 --out=benchmarks/results/local.json
-```
+~~~json
+{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}
+{"op":"navigate","url":"https://example.com"}
+{"op":"title"}
+{"op":"screenshot"}
+{"op":"close"}
+~~~
 
-Required variables are `MASAKA_API_KEY`, `BROWSER_USE_API_KEY`, and `KERNEL_API_KEY`. Missing credentials are reported as `skipped`, never as zero or failed performance. The latest verified MASAKA production sample and the measurement limitations are in [Benchmarks](./docs/benchmarks.md); the capability comparison is in [Provider comparison](./docs/comparison.md).
+Use a dedicated container per mutually untrusted session. Treat evaluate, imported profiles, downloads, and outbound network access as privileged capabilities in your own integration.
 
-## Develop
+The smoke-only loopback page starts only when JET_BROWSER_SMOKE=1. The included seccomp profile permits the user and mount namespace operations required by WPE WebKit's own bubblewrap sandbox. The container does not receive SYS_ADMIN or privileged mode.
 
-```bash
+## Develop and verify
+
+~~~bash
 npm ci
 npm test
 cargo test --all-targets
-```
+~~~
 
-Build a worker image with an explicit version:
+Build only the standalone runtime:
 
-```bash
-docker build -f Dockerfile.wpe-worker \
-  -t masaka-jet-browser-wpe:0.6.5 .
-```
+~~~bash
+docker build -f Dockerfile.standalone -t jet-browser:local .
+~~~
 
-The worker requires control-plane credentials, a ticket-signing secret, and a unique immutable worker ID. Keep deployment secrets in your secret manager or an untracked env file. Never commit them.
+Build the optional distributed worker:
+
+~~~bash
+docker build -f Dockerfile.wpe-worker -t jet-browser-worker:local .
+~~~
 
 ## Project map
 
-- [`src/`](./src) — worker, direct data plane, capture, scaling, state, and security boundaries
-- [`rust/`](./rust) — WebDriver bridge and native input/profile helpers
-- [`sdk/`](./sdk) — trusted server SDK and signed-in browser/mobile SDK
-- [`examples/`](./examples) — bounded, runnable integration examples
-- [`benchmarks/`](./benchmarks) — reproducible provider-neutral runtime benchmark
-- [`docs/`](./docs) — architecture, demos, benchmarks, and comparisons
-- [`test/`](./test) — Node integration/unit regressions; Rust tests live beside their modules
+- [rust/](./rust) — native WebDriver bridge and browser helpers
+- [src/](./src) — optional distributed worker, preview, input, state, and safety boundaries
+- [sdk/](./sdk) — client transports and agent tool declarations
+- [scripts/standalone-smoke.mjs](./scripts/standalone-smoke.mjs) — offline end-to-end verification
+- [test/](./test) — Node regression tests; Rust tests live beside their modules
+- [docs/](./docs) — protocol, architecture, and integration notes
 
 ## Scope
 
-Jet Browser is browser infrastructure, not an LLM agent framework. Browser Use and similar frameworks can sit above it; MASAKA Agent Harness is a separate product layer. Jet Browser currently exposes its ordered action API and direct preview/input protocol, not a public CDP endpoint.
+Jet Browser is browser infrastructure, not an LLM or agent framework. The core exposes its JSONL action protocol rather than pretending WPE implements Chromium-only extension, policy, or CDP contracts.
 
-Read [Demo guide](./docs/demo.md), [Kernel open-source design review](./docs/kernel-open-source-review.md), [Contributing](./CONTRIBUTING.md), and [Security](./SECURITY.md) before deploying or changing the protocol.
+Jet Browser is licensed under [Apache License 2.0](./LICENSE). Read [Contributing](./CONTRIBUTING.md) and [Security](./SECURITY.md) before deploying or changing the protocol.
