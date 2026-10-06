@@ -19,7 +19,7 @@ Use the shared local `/Users/asklv/Projects/socai/docs/work/20260930/masaka.env`
 ```sh
 npm ci
 npm test
-docker build -f Dockerfile.wpe-worker -t masaka-jet-browser-wpe:0.5.92 .
+docker build -f Dockerfile.wpe-worker -t masaka-jet-browser-wpe:0.6.2 .
 docker run -d --name masaka-jet-browser-wpe --restart unless-stopped --init \
   --shm-size=1g --memory=4g --cpus=2 --pids-limit=512 \
   --dns=1.1.1.1 --dns=1.0.0.1 \
@@ -27,7 +27,7 @@ docker run -d --name masaka-jet-browser-wpe --restart unless-stopped --init \
   --security-opt seccomp=./seccomp_profile.json \
   --security-opt systempaths=unconfined \
   --env-file ../worker.env -e WORKER_ID=deeptensor-wpe-01 -e WORKER_CAPACITY=1 \
-  masaka-jet-browser-wpe:0.5.92
+  -e MASAKA_BROWSER_REGION=overseas masaka-jet-browser-wpe:0.6.2
 ```
 
 Remote directory: `/data0/deeptensor_engineers/lvbo/masaka/jet-browser`.
@@ -38,7 +38,7 @@ Container: `masaka-jet-browser-wpe`. No host ports are published. The entrypoint
 ```js
 import { MasakaBrowser } from './sdk/client.mjs';
 const client = new MasakaBrowser({apiKey: process.env.MASAKA_API_KEY});
-const session = await client.create({url:'https://example.com', maxSeconds:300});
+const session = await client.create({url:'https://example.com', region:'overseas', maxSeconds:300});
 try {
   await client.waitForReady(session.id);
   await client.click(session.id, 320, 200);
@@ -55,6 +55,12 @@ Supabase access token and project ID. It supports launch/stop, direct Live DOM o
 Visual preview, human-control handoff, pointer/touch/keyboard/wheel input, downloads
 and clean release back to the agent. The backend exchanges the access token for a
 short-lived, session-bound worker ticket; the service-role key never reaches the client.
+
+`region` is `overseas` by default and can be set to `china`. The control plane
+stores the selection on the session. A worker registers one immutable region and
+claims only matching queued sessions. The regional autoscaler manages every worker,
+including the first warm worker, from real queue demand and host CPU/memory headroom;
+there is no operator-managed instance-count ceiling.
 
 ```js
 import {MasakaBrowserClient} from './sdk/browser.mjs';

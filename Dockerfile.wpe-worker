@@ -18,7 +18,7 @@ ENV DEBIAN_FRONTEND=noninteractive NODE_ENV=production \
     XDG_RUNTIME_DIR=/tmp/wpe-runtime WAYLAND_DISPLAY=wayland-0 LIBGL_ALWAYS_SOFTWARE=1
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wpewebkit-webdriver libwpebackend-fdo-1.0-1 weston dbus-x11 libgl1-mesa-dri \
-    ca-certificates curl gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav tar util-linux fonts-noto-cjk fonts-noto-color-emoji && \
+    ca-certificates curl openssh-client gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-libav tar util-linux fonts-noto-cjk fonts-noto-color-emoji && \
     groupadd --gid 1000 masaka && \
     useradd --create-home --uid 1000 --gid masaka worker && \
     useradd --create-home --uid 1001 --gid masaka browser && \
