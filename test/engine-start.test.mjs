@@ -63,6 +63,18 @@ test("navigation readiness preserves fatal document probe failures", async () =>
   assert.equal(probes, 2);
 });
 
+test("WPE navigation can disable script probes while a document is loading",async()=>{
+ let now=0,probes=0,reads=0;
+ const result=await beginNavigationWithWait({
+  documentStateDuringNavigation:false,
+  async beginNavigation(){},
+  async url(){reads++;return reads===1?'about:blank':'https://duckduckgo.com/';},
+  async documentState(){probes++;throw Error('script execution must stay off the loading path');}
+ },'https://duckduckgo.com/',{timeoutMs:5_000,pollMs:500,pause:async ms=>{now+=ms;},now:()=>now});
+ assert.equal(result.url,'https://duckduckgo.com/');
+ assert.equal(probes,0);
+});
+
 test("nonblocking navigation waits for a committed target document", async () => {
   let now = 1_000;
   const statuses = [

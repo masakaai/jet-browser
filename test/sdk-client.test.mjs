@@ -2,6 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {JetBrowser} from '../sdk/client.mjs';
 
+test('server SDK routes sessions to an explicit regional pool',async()=>{
+ const calls=[],original=globalThis.fetch;
+ globalThis.fetch=async(url,options={})=>{calls.push({url,options});return Response.json({id:'browser-1',region:'china'});};
+ try{
+  const client=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'});
+  await client.create({region:'china'});
+  assert.equal(JSON.parse(calls[0].options.body).region,'china');
+  assert.throws(()=>client.create({region:'moon'}),/Unsupported browser region/);
+ }finally{globalThis.fetch=original;}
+});
+
 test('SDK acquires an agent capability once and sends it with actions',async()=>{
  const calls=[],original=globalThis.fetch;
  globalThis.fetch=async(url,options={})=>{calls.push({url,options});if(url.endsWith('/control'))return Response.json({mode:'agent',token:'agent-capability',epoch:1});if(url.endsWith('/commands'))return Response.json({id:'command-1',status:'queued'});return Response.json({id:'command-1',status:'completed',result:{ok:true}});};
@@ -44,5 +55,24 @@ test('explicit control replacement fences an older acquisition response',async()
   finish(Response.json({mode:'agent',token:'stale-capability',epoch:1}));
   await pending;
   assert.equal(client.controls.get('browser-1'),'new-explicit-capability');
+ }finally{globalThis.fetch=original;}
+});
+
+test('server SDK exposes real browser tab commands',async()=>{
+ const sent=[],original=globalThis.fetch;
+ globalThis.fetch=async(url,options={})=>{
+  if(url.endsWith('/control'))return Response.json({mode:'agent',token:'agent-capability',epoch:1});
+  if(url.endsWith('/commands')){sent.push(JSON.parse(options.body));return Response.json({id:`command-${sent.length}`});}
+  return Response.json({status:'completed',result:{tabs:[{handle:'page-one'}],active_tab:'page-one'}});
+ };
+ try{
+  const browser=new JetBrowser({apiKey:'msk_test',baseUrl:'https://api.example'});
+  await browser.control('browser-1');
+  await browser.tabs('browser-1');
+  await browser.newTab('browser-1');
+  await browser.switchTab('browser-1','page-one');
+  await browser.closeTab('browser-1','page-two');
+  assert.deepEqual(sent,[{kind:'tabs'},{kind:'tab_new'},{kind:'tab_switch',handle:'page-one'},{kind:'tab_close',handle:'page-two'}]);
+  assert.throws(()=>browser.control('browser-1','human'),/agent control/);
  }finally{globalThis.fetch=original;}
 });

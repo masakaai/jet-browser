@@ -2,6 +2,15 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 
+test('profile import rejects a document that changed origin before execution',async()=>{
+ const source=await readFile(new URL('../rust/profile-import.js',import.meta.url),'utf8');
+ const previous=globalThis.location;globalThis.location={origin:'https://attacker.example'};
+ try{
+  const result=await new Promise(resolve=>new Function(source)({restore:{}},'https://saved.example',resolve));
+  assert.match(result.__masaka_error,/origin changed/);
+ }finally{if(previous===undefined)delete globalThis.location;else globalThis.location=previous;}
+});
+
 test('profile import restores bodyless responses and invalidates opaque entries for refetch',async()=>{
  const source=await readFile(new URL('../rust/profile-import.js',import.meta.url),'utf8'),written=[];
  const previous={caches:globalThis.caches,localStorage:globalThis.localStorage,sessionStorage:globalThis.sessionStorage,indexedDB:globalThis.indexedDB};
@@ -39,6 +48,14 @@ test('application objects using the internal tag name round-trip without coercio
  const encode=new Function(exported.slice(0,exported.indexOf('const openDatabase='))+'return encode;')(()=>{});
  const decode=new Function(imported.slice(0,imported.indexOf('const createDatabase='))+'return decode;')({},()=>{});
  for(const value of [{__masaka:'date',value:'application-value'},{nested:{__masaka:'application',value:3}}])assert.deepEqual(await decode(await encode(value)),value);
+});
+
+test('profile export provides a bounded fallback for visible cookies omitted by WPE WebDriver',async()=>{
+ const source=await readFile(new URL('../rust/profile-export.js',import.meta.url),'utf8');
+ const previous={document:globalThis.document,location:globalThis.location,localStorage:globalThis.localStorage,sessionStorage:globalThis.sessionStorage,indexedDB:globalThis.indexedDB,caches:globalThis.caches};
+ const storage={length:0,key:()=>null,getItem:()=>null};globalThis.document={cookie:'secure_session=visible-value; preference=dark'};globalThis.location={hostname:'account.example',protocol:'https:'};globalThis.localStorage=globalThis.sessionStorage=storage;globalThis.indexedDB={databases:async()=>[]};globalThis.caches={keys:async()=>[]};
+ try{const result=await new Promise(resolve=>new Function(source)(resolve));assert.deepEqual(result.visible_cookies,[{name:'secure_session',value:'visible-value',domain:'account.example',path:'/',expiry:-1,httpOnly:false,secure:true,sameSite:'Lax'},{name:'preference',value:'dark',domain:'account.example',path:'/',expiry:-1,httpOnly:false,secure:true,sameSite:'Lax'}]);}
+ finally{for(const [name,value] of Object.entries(previous))if(value===undefined)delete globalThis[name];else globalThis[name]=value;}
 });
 
 test('session-only profile import preserves newer native local and cache storage',async()=>{

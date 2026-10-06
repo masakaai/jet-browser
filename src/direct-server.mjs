@@ -13,7 +13,14 @@ const requireCurrentInput = state => {
   if(state.claims.scope!=='input'||!Number.isSafeInteger(state.claims.epoch)||state.claims.epoch!==state.control.controlEpoch)throw Error('Stale browser control ticket');
 };
 
+export const requireFreshInputTicket=(state,now=Math.floor(Date.now()/1000))=>{
+  requireCurrentInput(state);
+  if(state.claims.exp<now)throw Error('Input capability expired');
+};
+
 export const DIRECT_ACTION_TYPES=new Set(['input','navigate','tab-switch','tab-new','tab-close']);
+export const frameBackpressured=(socket,event)=>
+  (event==='frame'||event==='frame-start')&&socket.bufferedAmount>64_000;
 const readyPayload=(state,scope)=>({session_id:state.claims.sid,scope,preview_mode:state.claims.mode,viewport:state.control.row.viewport||{width:1280,height:800},tabs:state.control.tabs||[],active_tab:state.control.activeTab||null});
 
 const releaseInput=async control=>{try{await control.releaseInput?.();}finally{control.endInput?.();}};
@@ -83,7 +90,7 @@ export async function revokeDirectControl(active, worker, claims) {
   return {revoked:true,epoch:control.controlEpoch};
 }
 
-export function createDirectServer({ active, worker, secret, port = 8787 }) {
+export function createDirectServer({ active, worker, secret, port = 8787, host = '127.0.0.1' }) {
   const http = createServer(async(req,res) => {
     if (req.url === '/health') { res.writeHead(200,{'content-type':'application/json'}); return res.end('{"ok":true}'); }
     if(req.url==='/v1/revoke'&&req.method==='POST'){
@@ -134,7 +141,7 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
     control.wake?.();control.wake=null;
     json(socket,{type:'ready',payload:readyPayload(socket.masaka,claims.scope)});
   };
-  wss.on('connection',socket=>{
+  wss.on('connection',(socket,request)=>{
     sockets.add(socket);socket.isAlive=true;socket.masakaClosed=false;socket.masakaMessages=Promise.resolve();
     socket.on('pong',()=>{socket.isAlive=true;});
     socket.on('message',(data,isBinary)=>{void enqueueSocketMessage(socket,async()=>{
@@ -159,12 +166,13 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
           return;
         }
         if(!DIRECT_ACTION_TYPES.has(message.type)||state.claims.scope!=='input')throw Error('Input capability required');
-        requireCurrentInput(state);
-        if(state.claims.exp<Math.floor(Date.now()/1000))throw Error('Input capability expired');
+        requireFreshInputTicket(state);
         const seq=Number(message.seq);if(!Number.isSafeInteger(seq)||seq<0)throw Error('Invalid input sequence');
         const started=Date.now();await state.control.beginInput?.();
         try{
-          requireCurrentInput(state);
+          // beginInput can wait behind a long engine operation. Revalidate both
+          // epoch and expiry at the actual dispatch boundary.
+          requireFreshInputTicket(state);
           if(message.type==='input')await state.control.applyInput(message.events,state.claims.epoch);
           else if(message.type==='navigate')await state.control.navigate(message.url,state.claims.epoch);
           else if(message.type==='tab-switch')await state.control.switchTab(message.handle,state.claims.epoch);
@@ -181,9 +189,12 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
     });});
     socket.on('close',()=>{socket.masakaClosed=true;sockets.delete(socket);void enqueueSocketMessage(socket,async()=>{if(socket.masaka?.claims.scope==='input'){socket.masaka.claims.scope='view';await releaseInput(socket.masaka.control).catch(()=>{});}socket.masaka?.control.clients.delete(socket);}).catch(()=>{});});
     socket.on('error',()=>{});
+    let queryTicket='';
+    try{queryTicket=new URL(request.url,'http://localhost').searchParams.get('ticket')||'';}catch{}
+    if(queryTicket&&queryTicket.length<=4096)void enqueueSocketMessage(socket,()=>authorize(socket,queryTicket)).catch(()=>socket.close(4003,'Authorization denied'));
   });
   const heartbeat=setInterval(()=>{const now=Math.floor(Date.now()/1000);for(const socket of sockets){if(socket.masaka?.claims.exp<now){socket.close(4003,'Capability expired');continue;}if(!socket.isAlive){socket.terminate();continue;}socket.isAlive=false;socket.ping();}},15000);heartbeat.unref();
-  http.listen(port,'127.0.0.1');
+  http.listen(port,host);
   return {
     broadcast(control,event,payload){
       let sent=false;
@@ -197,11 +208,11 @@ export function createDirectServer({ active, worker, secret, port = 8787 }) {
         // frame/snapshot instead of leaving a permanently stale mirror.
         if(socket.readyState!==WebSocket.OPEN)continue;
         if(socket.bufferedAmount>8_000_000){socket.close(1013,'Preview client is too slow');continue;}
-        // Pixels are latest-state data. Never build a queue of obsolete
-        // frames behind a lossy/slow connection; reconnect requests a fresh
-        // compositor frame. Chunks belonging to an already-started frame are
-        // still kept together so the viewer never observes a partial PNG.
-        if((event==='frame'||event==='frame-start')&&socket.bufferedAmount>64_000){socket.close(1013,'Preview client is too slow');continue;}
+        // Pixels are latest-state data. Skip an obsolete frame when the
+        // previous one is still in flight, but keep the viewer connected so
+        // the next compositor probe can deliver the newest state. Chunks for
+        // an already-started frame remain ordered and are never dropped.
+        if(frameBackpressured(socket,event))continue;
         if(payload instanceof ArrayBuffer||ArrayBuffer.isView(payload)||Buffer.isBuffer(payload)){
           const buffer=Buffer.isBuffer(payload)?payload:Buffer.from(payload.buffer||payload,payload.byteOffset||0,payload.byteLength||payload.byteLength);
           if(!json(socket,{type:'binary',event,length:buffer.length})){socket.close(1013,'Preview client is too slow');continue;}

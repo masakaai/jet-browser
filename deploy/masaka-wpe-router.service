@@ -1,0 +1,16 @@
+[Unit]
+Description=MASAKA shared WPE direct-data router
+After=network-online.target masaka-wpe-autoscaler.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=-/usr/bin/docker rm -f masaka-wpe-direct-router
+ExecStart=/usr/bin/docker run --rm --name masaka-wpe-direct-router --network masaka-browser -p 127.0.0.1:48787:8787 --env-file /data0/deeptensor_engineers/lvbo/masaka/worker.env -e MASAKA_TUNNEL_PROVIDER=cloudflare-with-fallback --memory=512m --cpus=1 --pids-limit=128 --security-opt no-new-privileges --entrypoint node masaka-jet-browser-wpe:0.6.3-router /app/src/shared-direct-router.mjs
+ExecStop=-/usr/bin/docker stop -t 20 masaka-wpe-direct-router
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target

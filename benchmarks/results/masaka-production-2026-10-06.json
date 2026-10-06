@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "capturedDate": "2026-10-06",
+  "provider": "masaka",
+  "environment": {
+    "client": "macOS client in China",
+    "region": "overseas",
+    "engine": "WPE WebKit 2.54",
+    "viewport": "1280x800",
+    "transport": "persistent direct WSS",
+    "runsPerMode": 1
+  },
+  "samples": [
+    {
+      "previewMode": "visual",
+      "browserReadyMs": 3570,
+      "firstPreviewMs": 167,
+      "firstPreviewBytes": 25799,
+      "inputAckMs": 300,
+      "status": "passed"
+    },
+    {
+      "previewMode": "live-dom",
+      "browserReadyMs": 5790,
+      "firstPreviewMs": 85,
+      "inputAckMs": 302,
+      "status": "passed"
+    }
+  ],
+  "resourceSample": {
+    "capturedAt": "2026-10-02",
+    "memoryMiBPerActiveContainer": {
+      "min": 308.9,
+      "max": 315.3
+    },
+    "sampledCpuPercentPerContainer": {
+      "min": 5.03,
+      "max": 12.89
+    },
+    "duplicateVisualFramesInFiveSeconds": 0
+  },
+  "limitations": [
+    "Single end-to-end sample per preview mode; not an SLA or percentile distribution.",
+    "Input latency includes the physical client-to-overseas network path.",
+    "Resource sample was captured on 2026-10-02 and is not a saturation benchmark."
+  ]
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cacheOnlyState,markProfileStateRestored,mergeWpeState,normalizeProfileState,profileOriginNeedsRestore,profileStateForRestore,shouldApplyWpeState,stateForWpe} from '../src/wpe-profile-state.mjs';
+import {cacheOnlyState,markProfileStateRestored,mergeWpeState,normalizeProfileState,overlayNewerProfileSummary,profileOriginNeedsRestore,profileStateForRestore,shouldApplyWpeState,stateForWpe} from '../src/wpe-profile-state.mjs';
 test('WPE state round-trips through Playwright-compatible cookie and origin fields',()=>{
  const current={cookies:[{name:'sid',value:'one',domain:'.example.com',path:'/',expiry:1800000000,httpOnly:true,secure:true,sameSite:'Strict'}],local_storage:[{name:'token',value:'v1'}]};
  const state=mergeWpeState(normalizeProfileState(),'https://app.example.com/page',current);assert.deepEqual(state.origins,[{origin:'https://app.example.com',localStorage:[{name:'token',value:'v1'}],sessionStorage:[],indexedDB:[],cacheStorage:[]}]);
@@ -58,6 +58,13 @@ test('authoritative empty portable state clears an older native profile',()=>{
  assert.deepEqual(value.deleted_cookies,[{name:'sid',domain:'example.com',path:'/'}]);
  assert.equal(shouldApplyWpeState({cookies:[],local_storage:[],session_storage:[],indexed_db:[],cache_storage:[]}),false);
  assert.equal(shouldApplyWpeState({cookies:[],local_storage:[],session_storage:[],indexed_db:[],cache_storage:[],restore:{session_storage:true}}),false);
+});
+test('a newer database summary fences a stale object bundle after logout',()=>{
+ const stale={nativeRevision:0,cookieRevision:1,cookies:[{name:'tokenp_',value:'old-token',domain:'www.demoblaze.com',path:'/',secure:true,revision:1}],cookieDeletions:[],origins:[{origin:'https://www.demoblaze.com',revision:1,localStorage:[{name:'theme',value:'old'}],sessionStorage:[{name:'draft',value:'preserve'}],indexedDB:[{name:'cart'}],cacheStorage:[{name:'assets'}]}]};
+ const summary={nativeRevision:0,cookieRevision:2,cookies:[],cookieDeletions:[{name:'tokenp_',domain:'www.demoblaze.com',path:'/',secure:true,revision:2}],origins:[{origin:'https://www.demoblaze.com',revision:2,localStorage:[{name:'theme',value:'new'}]}]};
+ const result=overlayNewerProfileSummary(stale,summary);
+ assert.equal(result.cookieRevision,2);assert.deepEqual(result.cookies,[]);assert.deepEqual(result.cookieDeletions,summary.cookieDeletions);
+ assert.deepEqual(result.origins[0],{origin:'https://www.demoblaze.com',revision:2,localStorage:[{name:'theme',value:'new'}],sessionStorage:[{name:'draft',value:'preserve'}],indexedDB:[{name:'cart'}],cacheStorage:[{name:'assets'}]});
 });
 test('browser-driven navigation detects an unrestored portable origin',()=>{
  const state={nativeRevision:2,cookieRevision:3,cookies:[{name:'sid',value:'portable',domain:'account.example',path:'/',secure:true,revision:3}],origins:[{origin:'https://account.example',revision:3,localStorage:[{name:'token',value:'portable'}],sessionStorage:[],indexedDB:[],cacheStorage:[]}]};

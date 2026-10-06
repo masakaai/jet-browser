@@ -53,6 +53,7 @@ enum Command {
     ExportState,
     ImportState {
         state: Value,
+        expected_origin: String,
     },
     Release,
     Close,
@@ -119,7 +120,10 @@ fn main() {
                         engine.semantic_control(&r#type, &payload)
                     }
                     Command::ExportState => engine.export_state(),
-                    Command::ImportState { state } => engine.import_state(&state),
+                    Command::ImportState {
+                        state,
+                        expected_origin,
+                    } => engine.import_state(&state, &expected_origin),
                     Command::Release => engine.release(),
                     Command::Close => engine.close(),
                 })

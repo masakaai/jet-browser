@@ -25,6 +25,12 @@ test('WPE client frames commands and resolves matching JSONL responses',async()=
  child.stdout.write('{"ok":true,"value":{"sessionId":"one"}}\n');assert.deepEqual(await result,{sessionId:'one'});
  client.closed=true;client.lines.close();
 });
+test('profile import passes an execution-time origin fence to the bridge',async()=>{
+ const child=fakeChild(),client=new WpeClient(child),written=[];child.stdin.on('data',data=>written.push(String(data)));
+ const result=client.importState({cookies:[]},'https://saved.example');await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(JSON.parse(written.shift()),{op:'import_state',state:{cookies:[]},expected_origin:'https://saved.example'});
+ child.stdout.write('{"ok":true,"value":{"ok":true}}\n');await result;client.closed=true;client.lines.close();
+});
 test('browser creation uses a bounded failover timeout',async()=>{
  const child=fakeChild(),client=new WpeClient(child);let observed;
  client.command=async(value,timeout)=>{observed={value,timeout};return {sessionId:'bounded'};};

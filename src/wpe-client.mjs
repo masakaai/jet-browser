@@ -3,7 +3,7 @@ import {createInterface} from 'node:readline';
 
 export class WpeClient{
 	 constructor(child=null,driverURL=process.env.WPE_WEBDRIVER_URL||'http://127.0.0.1:9515',captureURL=null){
-	  this.driverURL=driverURL;this.captureURL=captureURL;this.child=child||spawn(process.env.JET_WPE_BINARY||'/usr/local/bin/jet-wpe',[],{stdio:['pipe','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,WPE_WEBDRIVER_URL:driverURL}});this.pending=[];this.closed=false;
+	  this.driverURL=driverURL;this.captureURL=captureURL;this.documentStateDuringNavigation=false;this.child=child||spawn(process.env.JET_WPE_BINARY||'/usr/local/bin/jet-wpe',[],{stdio:['pipe','pipe','pipe'],env:{PATH:process.env.PATH,HOME:process.env.HOME,WPE_WEBDRIVER_URL:driverURL}});this.pending=[];this.closed=false;
   const engine=this.child;this.lines=createInterface({input:engine.stdout});
   this.lines.on('line',line=>this.receive(line));
   engine.stderr?.on('data',data=>{const message=String(data).replace(/https?:\/\/\S+/g,'[url]').slice(0,300).trim();if(message)console.error('WPE engine',message);});
@@ -31,7 +31,7 @@ export class WpeClient{
  navigate(url,timeout=45000){return this.command({op:'navigate',url},timeout);}
  beginNavigation(url,timeout=10000){return this.command({op:'begin_navigation',url},timeout);}
  input(events){return this.command({op:'input',events});}
- screenshot(){return this.command({op:'screenshot'});}
+	 screenshot(){return this.command({op:'screenshot'});}
 	 async compositorScreenshot(timeout=5000){
 	  if(!this.captureURL)return this.screenshot();
 	  const response=await fetch(this.captureURL+'/capture',{signal:AbortSignal.timeout(timeout)});
@@ -55,7 +55,7 @@ export class WpeClient{
 	 drainSemantic(maxBytes=2_100_000,maxMessages=128){return this.command({op:'drain_semantic',max_bytes:maxBytes,max_messages:maxMessages});}
 	 semanticControl(type,payload={}){return this.command({op:'semantic_control',type,payload});}
 	 exportState(){return this.command({op:'export_state'});}
- importState(state){return this.command({op:'import_state',state});}
+ importState(state,expectedOrigin){return this.command({op:'import_state',state,expected_origin:expectedOrigin});}
  release(){return this.command({op:'release'});}
 	 async close(){if(this.closed)return this.cleanupOrphan();try{await this.command({op:'close'},15000);this.sessionId=null;}catch(error){try{await this.cleanupOrphan();}catch(cleanupError){throw new AggregateError([error,cleanupError],'WPE session cleanup failed');}throw error;}finally{this.closed=true;this.lines.close();this.child.stdin.end();setTimeout(()=>this.child.kill('SIGKILL'),2000).unref();}}
 	 async cleanupOrphan(attempts=3){

@@ -108,6 +108,34 @@ fn validate_window_handle(value: &str) -> Result<&str> {
     Ok(value)
 }
 
+fn runtime_proxy(value: &str) -> Result<(String, Value)> {
+    let url = reqwest::Url::parse(value).map_err(|_| "Invalid proxy URL")?;
+    if url.scheme() != "http"
+        || !matches!(
+            url.host_str(),
+            Some("127.0.0.1" | "localhost" | "[::1]" | "::1")
+        )
+        || url.port().is_none()
+        || url.path() != "/"
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err("Proxy must be an authenticated runtime loopback".into());
+    }
+    let host = url.host_str().ok_or("Invalid proxy URL")?;
+    let authority = if host.contains(':') {
+        format!("[{host}]:{}", url.port().unwrap())
+    } else {
+        format!("{host}:{}", url.port().unwrap())
+    };
+    Ok((
+        url.to_string(),
+        json!({"proxyType":"manual","httpProxy":authority,"sslProxy":authority,"noProxy":[]}),
+    ))
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Input {
@@ -307,21 +335,12 @@ impl Wpe {
             "--fullscreen".into(),
             "--size=1280x800".into(),
         ];
-        if let Some(proxy) = proxy {
-            let url = reqwest::Url::parse(proxy).map_err(|_| "Invalid proxy URL")?;
-            if url.scheme() != "http"
-                || !matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "[::1]"))
-                || url.port().is_none()
-                || url.path() != "/"
-                || !url.username().is_empty()
-                || url.password().is_some()
-                || url.query().is_some()
-                || url.fragment().is_some()
-            {
-                return Err("Proxy must be an authenticated runtime loopback".into());
-            }
-            args.push(format!("--proxy={proxy}"));
-        }
+        let browser_proxy = if let Some(proxy) = proxy {
+            let (_argument, capability) = runtime_proxy(proxy)?;
+            Some(capability)
+        } else {
+            None
+        };
         if let Some(profile_dir) = profile_dir {
             let path = Path::new(profile_dir);
             if !path.starts_with("/var/lib/masaka/profiles/")
@@ -346,6 +365,14 @@ impl Wpe {
             return Err("Invalid page-load strategy".into());
         }
         let mut always_match = json!({"wpe:browserOptions":{"binary":"/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser","args":args}});
+        // MiniBrowser's `--proxy` flag is a WebKit network proxy URI, but WPE
+        // 2.54 applies it as a direct TLS endpoint for HTTPS and produces an
+        // "unexpected TLS packet" error against a plaintext CONNECT proxy.
+        // The W3C capability correctly distinguishes httpProxy and sslProxy
+        // and is therefore the single authoritative network path.
+        if let Some(proxy) = browser_proxy {
+            always_match["proxy"] = proxy;
+        }
         // WPE WebDriver 2.54 can stall URL inspection when `normal` is sent
         // explicitly. Omitting it preserves the protocol default used by the
         // proven Live DOM path; Visual still opts into `none`.
@@ -586,7 +613,7 @@ impl Wpe {
         )
     }
     pub fn export_state(&self) -> Result<Value> {
-        let cookies = self.request(Method::GET, &self.path("/cookie")?, None)?;
+        let native_cookies = self.request(Method::GET, &self.path("/cookie")?, None)?;
         let mut state = self.request(
             Method::POST,
             &self.path("/execute/async")?,
@@ -596,10 +623,41 @@ impl Wpe {
             return Err(format!("Profile export failed: {error}"));
         }
         let object = state.as_object_mut().ok_or("Invalid profile export")?;
-        object.insert("cookies".into(), cookies);
+        let mut cookies = native_cookies
+            .as_array()
+            .cloned()
+            .ok_or("Invalid native cookie export")?;
+        let visible = object
+            .remove("visible_cookies")
+            .and_then(|value| value.as_array().cloned())
+            .unwrap_or_default();
+        if visible.len() > 500 || cookies.len() > 500 {
+            return Err("Profile has too many cookies".into());
+        }
+        for cookie in visible {
+            let name = cookie.get("name").and_then(Value::as_str).unwrap_or("");
+            let value = cookie.get("value").and_then(Value::as_str).unwrap_or("");
+            let domain = cookie.get("domain").and_then(Value::as_str).unwrap_or("");
+            if name.is_empty()
+                || name.len() > 256
+                || value.len() > 4096
+                || domain.is_empty()
+                || domain.len() > 253
+            {
+                continue;
+            }
+            let present = cookies.iter().any(|saved| {
+                saved.get("name").and_then(Value::as_str) == Some(name)
+                    && saved.get("value").and_then(Value::as_str) == Some(value)
+            });
+            if !present && cookies.len() < 500 {
+                cookies.push(cookie);
+            }
+        }
+        object.insert("cookies".into(), Value::Array(cookies));
         Ok(state)
     }
-    pub fn import_state(&self, state: &Value) -> Result<Value> {
+    pub fn import_state(&self, state: &Value, expected_origin: &str) -> Result<Value> {
         if serde_json::to_vec(state)
             .map_err(|_| "Invalid profile state")?
             .len()
@@ -652,7 +710,7 @@ impl Wpe {
         let result = self.request(
             Method::POST,
             &self.path("/execute/async")?,
-            Some(json!({"script":IMPORT_PROFILE_SCRIPT,"args":[state]})),
+            Some(json!({"script":IMPORT_PROFILE_SCRIPT,"args":[state,expected_origin]})),
         )?;
         if let Some(error) = result.get("__masaka_error").and_then(Value::as_str) {
             return Err(format!("Profile import failed: {error}"));
@@ -753,8 +811,20 @@ mod tests {
     }
     #[test]
     fn validates_browser_tab_handles() {
-        assert_eq!(validate_window_handle("page-ABC_123:4").unwrap(), "page-ABC_123:4");
+        assert_eq!(
+            validate_window_handle("page-ABC_123:4").unwrap(),
+            "page-ABC_123:4"
+        );
         assert!(validate_window_handle("").is_err());
         assert!(validate_window_handle("page/escape").is_err());
+    }
+    #[test]
+    fn runtime_proxy_is_also_a_webdriver_capability() {
+        let (argument, capability) = runtime_proxy("http://127.0.0.1:43210/").unwrap();
+        assert_eq!(argument, "http://127.0.0.1:43210/");
+        assert_eq!(capability["proxyType"], "manual");
+        assert_eq!(capability["httpProxy"], "127.0.0.1:43210");
+        assert_eq!(capability["sslProxy"], "127.0.0.1:43210");
+        assert!(runtime_proxy("http://example.com:8080/").is_err());
     }
 }

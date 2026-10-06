@@ -82,7 +82,10 @@ export async function beginNavigationWithWait(
   let stable = 0;
   let lastHref = "";
   const previousUrl = String(await engine.url());
-  const previousDocument = typeof engine.documentState === "function"
+  const documentProbesEnabled =
+    typeof engine.documentState === "function" &&
+    engine.documentStateDuringNavigation !== false;
+  const previousDocument = documentProbesEnabled
     ? await optionalDocumentState(engine, Math.min(5_000, Math.max(1, timeoutMs)))
     : null;
   let targetHref;
@@ -100,7 +103,7 @@ export async function beginNavigationWithWait(
     try {
       loaded = new URL(await engine.url());
       if (loaded.href !== previousUrl) urlTransitionObserved = true;
-      if (typeof engine.documentState === "function") {
+      if (documentProbesEnabled) {
         // A destination can have a long server TTFB while the WebDriver and
         // compositor remain healthy (arXiv has been observed between 4–30s
         // from the worker region). Give the commit probe the navigation

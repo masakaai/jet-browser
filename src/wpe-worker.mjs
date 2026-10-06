@@ -4,9 +4,8 @@ import {isUniformPng} from './png-frame.mjs';
 import {WpeClient} from './wpe-client.mjs';
 import {startProxy,webURL,resolvePublic} from './network.mjs';
 import {seal,unseal} from './vault.mjs';
-import {cacheOnlyState,markProfileStateRestored,mergeWpeState,normalizeProfileState,profileOriginNeedsRestore,profileStateForRestore,shouldApplyWpeState} from './wpe-profile-state.mjs';
+import {mergeWpeState,normalizeProfileState,overlayNewerProfileSummary,profileOriginNeedsRestore,profileStateForRestore,shouldApplyWpeState} from './wpe-profile-state.mjs';
 import {decodeProfileState,encodeProfileState} from './profile-state-bundle.mjs';
-import {emptyProfile,packProfile,profileWorkspace,removeProfile,unpackProfile} from './profile-bundle.mjs';
 import {createSerialExecutor} from './serial.mjs';
 import {startDownloadRuntime} from './download-runtime.mjs';
 import {DownloadLoop} from './download-loop.mjs';
@@ -17,12 +16,18 @@ import {serializeSnapshot} from './snapshot.mjs';
 import {beginNavigationWithWait,createNavigatedEngine} from './engine-start.mjs';
 import {keyEvents} from './key-events.mjs';
 import {isFatalEngineFailure} from './engine-failure.mjs';
+import {commandEpoch,fencedLookup} from './control-command.mjs';
+import {applyPortableProfile,replayPortableCache} from './profile-restore.mjs';
+import {nextProfileExpiry,profileStateExpired} from './profile-retention.mjs';
+import {readHostResources} from './autoscale-resources.mjs';
+import {browserRegion} from './region.mjs';
+import {dragInputEvents} from './drag-input.mjs';
 
 const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(url,options={})=>fetch(url,{...options,signal:AbortSignal.timeout(15000)})}});
-const worker=process.env.WORKER_ID||'deeptensor-wpe-01',driverURLs=(process.env.WPE_WEBDRIVER_URLS||'http://127.0.0.1:9515,http://127.0.0.1:9516').split(',').map(value=>value.trim()).filter(Boolean),captureURLs=(process.env.WPE_CAPTURE_URLS||'http://127.0.0.1:9615,http://127.0.0.1:9616').split(',').map(value=>value.trim()).filter(Boolean),capacity=Math.min(Number(process.env.WORKER_CAPACITY||2),driverURLs.length,captureURLs.length);
+const worker=process.env.WORKER_ID||'deeptensor-wpe-01',region=browserRegion(process.env.MASAKA_BROWSER_REGION),workerVersion=process.env.MASAKA_WORKER_VERSION||'0.6.4',workerStartedAt=new Date().toISOString(),driverURLs=(process.env.WPE_WEBDRIVER_URLS||'http://127.0.0.1:9515,http://127.0.0.1:9516').split(',').map(value=>value.trim()).filter(Boolean),captureURLs=(process.env.WPE_CAPTURE_URLS||'http://127.0.0.1:9615,http://127.0.0.1:9616').split(',').map(value=>value.trim()).filter(Boolean),capacity=Math.min(Number(process.env.WORKER_CAPACITY||2),driverURLs.length,captureURLs.length);
 const active=new Map(),freeDrivers=[...driverURLs];let stopping=false,restartRequested=false,draining=false,claimInFlight=false,drainAcknowledged=false;
+const sharedDirectRouter=process.env.MASAKA_SHARED_DIRECT_ROUTER==='1';
 const profileBucket=process.env.PROFILE_BUCKET||'browser-profiles';
-const nativeProfileRoot='/var/lib/masaka/profiles';
 const downloadsEnabled=process.env.MASAKA_ENABLE_NATIVE_DOWNLOADS==='1';
 if(downloadsEnabled)throw Error('Native downloads are not packaged in this worker image');
 const semanticEnabled=process.env.MASAKA_SEMANTIC_PREVIEW!=='0';
@@ -32,40 +37,34 @@ const rpc=(name,parameters)=>query(db.rpc(name,parameters));
 const missingObject=error=>/not found|does not exist|404/i.test(`${error?.message||''} ${error?.statusCode||''}`);
 async function downloadProfileObject(object){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).download(object);if(!result.error||missingObject(result.error))return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
 async function uploadProfileObject(object,bundle){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).upload(object,bundle,{contentType:'application/octet-stream',upsert:true});if(!result.error)return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
+async function removeProfileObject(object){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).remove([object]);if(!result.error||missingObject(result.error))return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
 const ticketSecret=process.env.DATA_PLANE_TICKET_SECRET||process.env.VAULT_ENCRYPTION_KEY;
 if(!ticketSecret||ticketSecret.length<32)throw Error('The data-plane ticket secret must contain at least 32 characters');
-const dataPlane=createDirectServer({active,worker,secret:ticketSecret});
+const dataPlane=createDirectServer({active,worker,secret:ticketSecret,host:sharedDirectRouter?'0.0.0.0':'127.0.0.1'});
 let directURL=null;
-const stopTunnel=startQuickTunnel(url=>{directURL=url;void db.from('workers').update({direct_url:url,direct_updated_at:new Date().toISOString()}).eq('id',worker);});
+const stopTunnel=sharedDirectRouter?()=>{}:startQuickTunnel(url=>{directURL=url;void db.from('workers').update({direct_url:url,direct_updated_at:new Date().toISOString()}).eq('id',worker);});
 const profileObject=row=>`${row.user_id}/${row.profile_id}.bundle`;
-const nativeProfileObject=row=>`${row.user_id}/${row.profile_id}.native.bundle`;
-const nativeProfileWorkspace=row=>profileWorkspace(nativeProfileRoot,row.id);
 async function loadProfile(row){
  if(!row.profile_id)return null;
- const profile=await query(db.from('browser_profiles').select('encrypted_state').eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());
+ const profile=await query(db.from('browser_profiles').select('encrypted_state,state_expires_at').eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());
+ if(profileStateExpired(profile.state_expires_at)){
+  const removed=await removeProfileObject(profileObject(row));
+  if(removed.error&&!missingObject(removed.error))throw Error('Expired profile state could not be removed');
+  await query(db.from('browser_profiles').update({encrypted_state:null,state_expires_at:null,updated_at:new Date().toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));
+  return normalizeProfileState();
+ }
  const fallback=profile.encrypted_state?normalizeProfileState(unseal(profile.encrypted_state,row.user_id)):normalizeProfileState(),download=await downloadProfileObject(profileObject(row));
  if(download.error){if(!missingObject(download.error))throw Error('Profile storage is temporarily unavailable');return fallback;}
- return normalizeProfileState(decodeProfileState(Buffer.from(await download.data.arrayBuffer()),row.user_id,row.profile_id));
-}
-async function loadNativeProfile(row){
- if(!row.profile_id)return {directory:null,restored:false,revision:0};
- const workspace=nativeProfileWorkspace(row);
- const downloaded=await downloadProfileObject(nativeProfileObject(row));
- if(downloaded.error){
-  if(!missingObject(downloaded.error))throw Error('Profile storage is temporarily unavailable');
-  return {directory:await emptyProfile(workspace,row.user_id,row.profile_id),restored:false,revision:0};
- }
- const unpacked=await unpackProfile(Buffer.from(await downloaded.data.arrayBuffer()),workspace,row.user_id,row.profile_id,{withMetadata:true});
- return {directory:unpacked.directory,restored:true,revision:unpacked.revision};
+ const bundle=normalizeProfileState(decodeProfileState(Buffer.from(await download.data.arrayBuffer()),row.user_id,row.profile_id));
+ // Supabase Storage may briefly serve the previous object after an upsert.
+ // The database summary commits after that upload and carries monotonic
+ // revisions, so use its newer cookie/localStorage layer as the auth fence.
+ return overlayNewerProfileSummary(bundle,fallback);
 }
 async function captureProfile(engine,state,revision){
  if(!state)return state;const url=await engine.url();if(!['http:','https:'].includes(new URL(url).protocol))return state;return mergeWpeState(state,url,await engine.exportState(),revision);
 }
-async function applyProfile(engine,state,tracker,nativeRestored,stateURL=null){
- if(!state)return false;const actualURL=await engine.url(),actualLocation=new URL(actualURL),targetURL=stateURL||actualURL,targetLocation=new URL(targetURL);if(!['http:','https:'].includes(actualLocation.protocol)||actualLocation.origin!==targetLocation.origin)return false;const value=profileStateForRestore(state,targetURL,tracker,{nativeRestored}),hasCache=value?.cache_storage?.length||value?.restore?.cache_storage===true;if(!shouldApplyWpeState(value))return false;await engine.importState(value);await beginNavigationWithWait(engine,targetURL,{timeoutMs:45000,pause:sleep});if(hasCache)await engine.importState(cacheOnlyState(value));markProfileStateRestored(tracker,targetURL,value);return true;
-}
-async function persistProfile(row,state){if(!row.profile_id||!state)return;const bundle=encodeProfileState(state,row.user_id,row.profile_id),uploaded=await uploadProfileObject(profileObject(row),bundle);if(uploaded.error)throw Error('Profile storage is temporarily unavailable');const summary={nativeRevision:state.nativeRevision,cookieRevision:state.cookieRevision,cookies:state.cookies,cookieDeletions:state.cookieDeletions||[],origins:state.origins.map(origin=>({origin:origin.origin,revision:origin.revision,localStorage:origin.localStorage||[]}))};await query(db.from('browser_profiles').update({encrypted_state:seal(summary,row.user_id),updated_at:new Date().toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));}
-async function persistNativeProfile(row,directory,revision){if(!row.profile_id||!directory)return;const bundle=await packProfile(nativeProfileWorkspace(row),row.user_id,row.profile_id,{revision}),uploaded=await uploadProfileObject(nativeProfileObject(row),bundle);if(uploaded.error)throw Error('Profile storage is temporarily unavailable');}
+async function persistProfile(row,state){if(!row.profile_id||!state)return;const bundle=encodeProfileState(state,row.user_id,row.profile_id),uploaded=await uploadProfileObject(profileObject(row),bundle);if(uploaded.error)throw Error('Profile storage is temporarily unavailable');const summary={nativeRevision:state.nativeRevision,cookieRevision:state.cookieRevision,cookies:state.cookies,cookieDeletions:state.cookieDeletions||[],origins:state.origins.map(origin=>({origin:origin.origin,revision:origin.revision,localStorage:origin.localStorage||[]}))},now=Date.now();await query(db.from('browser_profiles').update({encrypted_state:seal(summary,row.user_id),state_expires_at:nextProfileExpiry(now),updated_at:new Date(now).toISOString()}).eq('id',row.profile_id).eq('user_id',row.user_id).eq('project_id',row.project_id));}
 async function openStream(row,control){
  return {control};
 }
@@ -162,7 +161,7 @@ async function drainSemantic(engine,channel,control){
  }
  return observedMetadata;
 }
-async function createEngine(proxyURL,driverURL,profileDir,pageLoadStrategy){let failure;const captureURL=captureURLs[driverURLs.indexOf(driverURL)];for(let attempt=0;attempt<6;attempt++){const engine=new WpeClient(null,driverURL,captureURL);try{await engine.create({proxy:proxyURL,profileDir,pageLoadStrategy});return engine;}catch(error){failure=error;let cleaned=true;try{await engine.close();}catch{cleaned=false;}if(error.driverReusable===false||!cleaned){error.driverReusable=false;throw error;}if(attempt<5)await sleep(500*(attempt+1));}}failure.driverReusable=true;throw failure;}
+async function createEngine(proxyURL,driverURL,pageLoadStrategy){let failure;const captureURL=captureURLs[driverURLs.indexOf(driverURL)];for(let attempt=0;attempt<6;attempt++){const engine=new WpeClient(null,driverURL,captureURL);try{await engine.create({proxy:proxyURL,pageLoadStrategy});return engine;}catch(error){failure=error;let cleaned=true;try{await engine.close();}catch{cleaned=false;}if(error.driverReusable===false||!cleaned){error.driverReusable=false;throw error;}if(attempt<5)await sleep(500*(attempt+1));}}failure.driverReusable=true;throw failure;}
 async function navigateWithRetry(engine,target,attempts=2,timeoutMs=45000){
  const destination=new URL(target);let failure;
  for(let attempt=0;attempt<attempts;attempt++)try{return await engine.navigate(target,timeoutMs);}catch(error){
@@ -177,7 +176,7 @@ async function flushActions(control){
  try{await query(db.from('session_actions').insert(batch));}catch{if(control.actions.length<900)control.actions.unshift(...batch);}finally{control.flushing=false;}
 }
 async function runSession(row){
- let driverURL=freeDrivers.shift();const engineQueue=createSerialExecutor();let profileRestoreTracker={origins:new Set(),deletions:new Set()},engine,proxy,stream,profileState,nativeProfileDir,nativeRestored=false,nativeArchiveRevision=0,profileRevision=1,startupHeartbeatTimer,deadlineTimer,hardAbortTimer,deadlineCapture,leaseTimer,downloadLoop,commandPoll=null,profileOriginRestore=null,profileOriginFailure=null,driverReusable=true,lastPreview=0,lastVisualProbe=0,lastVisualState='',lastSemantic=0,lastSemanticInstall=0,lastPreviewHash='',lastPreviewState='',lastHeartbeat=0,lastLeaseWarning=0,lastCommandPoll=0,lastActionFlush=0,lastMetadataAt=0,lastMetadataState='',lastTabProbe=0,metadataInFlight=false,metadataWrite=Promise.resolve(),terminal='completed',failure=null,started=0,leaseDeadline=Date.now()+60000;const control={row,stop:false,expired:false,wake:null,forceFrame:row.preview_mode==='visual',frameFeedbackUntil:0,pixelActive:row.preview_mode==='visual',semanticInstalled:false,semanticGeneration:0,semanticBacklog:[],semanticControls:[],semanticControlBytes:0,semanticPriming:false,clients:new Set(),actions:[],flushing:false,applyInput:null,navigate:null,switchTab:null,newTab:null,closeTab:null,probeTabs:null,tabs:[],activeTab:null,releaseInput:null,inputPriority:false,inputPriorityTimer:null,controlEpoch:0};active.set(row.id,control);
+ let driverURL=freeDrivers.shift();const engineQueue=createSerialExecutor();let profileRestoreTracker={origins:new Set(),deletions:new Set()},engine,proxy,stream,profileState,profileRevision=1,startupHeartbeatTimer,deadlineTimer,hardAbortTimer,deadlineCapture,leaseTimer,downloadLoop,commandPoll=null,profileOriginRestore=null,profileOriginFailure=null,driverReusable=true,lastPreview=0,lastVisualProbe=0,lastVisualState='',lastSemantic=0,lastSemanticInstall=0,lastPreviewHash='',lastPreviewState='',lastHeartbeat=0,lastLeaseWarning=0,lastCommandPoll=0,lastActionFlush=0,lastMetadataAt=0,lastMetadataState='',lastTabProbe=0,metadataInFlight=false,metadataWrite=Promise.resolve(),terminal='completed',failure=null,started=0,leaseDeadline=Date.now()+60000;const control={row,stop:false,expired:false,wake:null,forceFrame:row.preview_mode==='visual',frameFeedbackUntil:0,pixelActive:row.preview_mode==='visual',semanticInstalled:false,semanticGeneration:0,semanticBacklog:[],semanticControls:[],semanticControlBytes:0,semanticPriming:false,clients:new Set(),actions:[],flushing:false,applyInput:null,navigate:null,switchTab:null,newTab:null,closeTab:null,probeTabs:null,tabs:[],activeTab:null,releaseInput:null,inputPriority:false,inputPriorityTimer:null,controlEpoch:0};active.set(row.id,control);
  // Browser creation and the first navigation happen while the row remains in
  // `starting`. Keep that state alive without beginning billable runtime or
  // exposing a preview ticket before the selected renderer is actually ready.
@@ -185,13 +184,13 @@ async function runSession(row){
  const engineTask=task=>engineQueue.run(task);
  const prepareProfileOrigin=async(candidate,target,tracker,timeoutMs=20000)=>{
   if(!profileState)return;
-  const destination=new URL(target),portable=profileStateForRestore(profileState,target,tracker,{nativeRestored});
+  const destination=new URL(target),portable=profileStateForRestore(profileState,target,tracker);
   if(!shouldApplyWpeState(portable))return;
   const bootstrap=portable.deleted_cookies?.length?destination.href:new URL('/robots.txt',destination.origin).href;
   await beginNavigationWithWait(candidate,bootstrap,{timeoutMs,pause:sleep});
   const current=new URL(await candidate.url());
   if(current.origin!==destination.origin)throw Error('Browser profile bootstrap redirected away from its saved origin');
-  await applyProfile(candidate,profileState,tracker,nativeRestored,destination.href);
+  await applyPortableProfile(candidate,profileState,tracker,destination.href,{pause:sleep});
  };
  // `none` keeps WebDriver commands responsive while slow/CDN-heavy pages are
  // loading. Readiness is enforced explicitly by beginNavigationWithWait, so
@@ -199,7 +198,7 @@ async function runSession(row){
  const launchEngine=async()=>{
   const candidateOrigins=new WeakMap();
   const candidate=await createNavigatedEngine({
-  create:()=>createEngine(proxy.url,driverURL,nativeProfileDir,'none'),
+  create:()=>createEngine(proxy?.url||null,driverURL,'none'),
   prepare:async(candidate,target,context)=>{
    // Apply portable corrections before the target page runs. In particular,
    // a page that rotates an auth cookie during its first load must never have
@@ -209,17 +208,18 @@ async function runSession(row){
   },
   navigate:(candidate,target,context)=>beginNavigationWithWait(candidate,target,{timeoutMs:Math.min(45000,context.remainingMs),pause:sleep}),target:row.url,attempts:6,timeoutMs:65000,pause:sleep
   });
+  await replayPortableCache(candidate,profileState,row.url);
   profileRestoreTracker=candidateOrigins.get(candidate)||{origins:new Set(),deletions:new Set()};
   return candidate;
  };
  const queueProfileOriginRestore=observedUrl=>{
   let needed=false;
-  try{needed=profileOriginNeedsRestore(profileState,observedUrl,profileRestoreTracker,{nativeRestored});}catch{return;}
+  try{needed=profileOriginNeedsRestore(profileState,observedUrl,profileRestoreTracker);}catch{return;}
   if(!needed||profileOriginRestore||control.stop)return;
   profileOriginRestore=engineTask(async()=>{
    const current=String(await engine.url());
-   if(!profileOriginNeedsRestore(profileState,current,profileRestoreTracker,{nativeRestored}))return;
-   if(!await applyProfile(engine,profileState,profileRestoreTracker,nativeRestored))return;
+   if(!profileOriginNeedsRestore(profileState,current,profileRestoreTracker))return;
+   if(!await applyPortableProfile(engine,profileState,profileRestoreTracker,null,{pause:sleep}))return;
    if(row.preview_mode==='semantic'){
     if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);
    }else control.forceFrame=true;
@@ -272,22 +272,23 @@ async function runSession(row){
   if(force||changed)await realtimeSend(stream,'tabs',{tabs:control.tabs,active_tab:current});
   return control.tabs;
  };
+ const syncTabs=options=>syncTabsEngine(options);
  try{
-	  if(!driverURL)throw Error('No WPE driver slot is available');const destination=webURL(row.url);await resolvePublic(destination.hostname);let upstream=null;if(row.proxy_id){const configured=await query(db.from('proxy_servers').select('encrypted_url,enabled').eq('id',row.proxy_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());if(!configured.enabled)throw Error('Configured proxy is disabled');upstream=unseal(configured.encrypted_url,row.user_id);}proxy=await startProxy(upstream);profileState=await loadProfile(row);({directory:nativeProfileDir,restored:nativeRestored,revision:nativeArchiveRevision}=await loadNativeProfile(row));if(profileState)profileState={...profileState,nativeRevision:nativeArchiveRevision};profileRevision=Math.max(nativeArchiveRevision,profileState?.cookieRevision||0,...(profileState?.origins||[]).map(origin=>origin.revision||0))+1;stream=await openStream(row,control);
+  if(!driverURL)throw Error('No WPE driver slot is available');const destination=webURL(row.url);await resolvePublic(destination.hostname);if(row.proxy_id){const configured=await query(db.from('proxy_servers').select('encrypted_url,enabled').eq('id',row.proxy_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());if(!configured.enabled)throw Error('Configured proxy is disabled');proxy=await startProxy(unseal(configured.encrypted_url,row.user_id));}profileState=await loadProfile(row);profileRevision=Math.max(profileState?.cookieRevision||0,...(profileState?.origins||[]).map(origin=>origin.revision||0))+1;stream=await openStream(row,control);
   if(downloadsEnabled){
-   try{const runtime=await startDownloadRuntime({session:row,worker,rpc,engineFactory:()=>new WpeClient(null,driverURL,captureURLs[driverURLs.indexOf(driverURL)]),proxy:proxy.url,profileDir:nativeProfileDir});engine=runtime.engine;downloadLoop=new DownloadLoop(runtime,{renewLease,onError:()=>console.error('WPE download publication deferred',row.id)});}
+   try{const runtime=await startDownloadRuntime({session:row,worker,rpc,engineFactory:()=>new WpeClient(null,driverURL,captureURLs[driverURLs.indexOf(driverURL)]),proxy:proxy?.url||null,profileDir:null});engine=runtime.engine;downloadLoop=new DownloadLoop(runtime,{renewLease,onError:()=>console.error('WPE download publication deferred',row.id)});}
    catch(error){driverReusable=error.driverReusable===true;throw error;}
-	  }else try{engine=await launchEngine();await applyProfile(engine,profileState,profileRestoreTracker,nativeRestored);if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}catch(error){
+	  }else try{engine=await launchEngine();await applyPortableProfile(engine,profileState,profileRestoreTracker,null,{pause:sleep});if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}catch(error){
 	   if(error.driverRestartRequired&&freeDrivers.length){
 	    const failedDriver=driverURL;restartRequested=true;await engine?.close().catch(()=>{});engine=null;driverURL=freeDrivers.shift();driverReusable=true;
 	    console.error('WPE driver slot quarantined; retrying session on fallback slot',failedDriver,'->',driverURL);
-	    try{engine=await launchEngine();await applyProfile(engine,profileState,profileRestoreTracker,nativeRestored);if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}catch(fallback){driverReusable=fallback.driverReusable===true&&!fallback.driverRestartRequired;throw fallback;}
+	    try{engine=await launchEngine();await applyPortableProfile(engine,profileState,profileRestoreTracker,null,{pause:sleep});if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}catch(fallback){driverReusable=fallback.driverReusable===true&&!fallback.driverRestartRequired;throw fallback;}
 	   }else{driverReusable=error.driverReusable===true&&!error.driverRestartRequired;throw error;}
 	  }
   control.releaseInput=()=>engineTask(()=>engine.release());
 	  // Overlay captured portable state after native restore. This repairs WPE
 	  // archives that omit web storage while retaining engine-private state.
-	  if(downloadsEnabled){await navigateWithRetry(engine,row.url);await applyProfile(engine,profileState,profileRestoreTracker,nativeRestored);if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}
+	  if(downloadsEnabled){await navigateWithRetry(engine,row.url);await applyPortableProfile(engine,profileState,profileRestoreTracker,null,{pause:sleep});if(await installSemantic(engine,stream,control))await primeSemantic(engine,control);}
   if(!(await rpc('start_session',{p_session:row.id,p_worker:worker})))throw Error('Session was canceled before startup');clearInterval(startupHeartbeatTimer);startupHeartbeatTimer=null;started=Date.now();lastHeartbeat=started;leaseDeadline=started+60000;deadlineTimer=setTimeout(()=>{control.expired=true;control.stop=true;control.controlEpoch++;for(const socket of control.clients)socket.close(4003,'Session expired');deadlineCapture=engineTask(async()=>{profileState=await captureProfile(engine,profileState,profileRevision);await engine.release().catch(()=>{});}).catch(()=>{});hardAbortTimer=setTimeout(()=>engine?.abort('WPE session deadline exceeded'),5000);hardAbortTimer.unref();control.wake?.();control.wake=null;},row.max_seconds*1000);
   leaseTimer=setInterval(()=>{void renewLease().then(accepted=>{if(!accepted)loseLease();}).catch(error=>{if(Date.now()-lastLeaseWarning>15000){lastLeaseWarning=Date.now();console.error('WPE lease renewal deferred',row.id,String(error.message).slice(0,120));}});},5000);leaseTimer.unref();
   // Metadata is not allowed to occupy the engine queue before the first
@@ -295,32 +296,37 @@ async function runSession(row){
   // title/redirect metadata is refreshed only while nobody is viewing.
   lastMetadataAt=Date.now();
   const requireActive=expectedEpoch=>{if(control.expired||control.stop||Date.now()-started>=row.max_seconds*1000)throw Error('Browser session has ended');if(Number.isSafeInteger(expectedEpoch)&&expectedEpoch!==control.controlEpoch)throw Error('Stale browser control ticket');};
-  control.probeTabs=()=>{if(control.tabProbePending)return control.tabProbePending;control.tabProbePending=engineTask(()=>syncTabsEngine({activateNew:true})).catch(error=>{if(isFatalEngineFailure(error)){driverReusable=false;control.stop=true;}else console.error('WPE tab discovery deferred',row.id,String(error.message).slice(0,120));}).finally(()=>{control.tabProbePending=null;});return control.tabProbePending;};
+  control.probeTabs=()=>{if(control.tabProbePending)return control.tabProbePending;control.tabProbePending=engineTask(()=>syncTabs({activateNew:true})).catch(error=>{if(isFatalEngineFailure(error)){driverReusable=false;control.stop=true;}else console.error('WPE tab discovery deferred',row.id,String(error.message).slice(0,120));}).finally(()=>{control.tabProbePending=null;});return control.tabProbePending;};
   control.applyInput=async(events,expectedEpoch)=>{requireActive(expectedEpoch);const result=await engineTask(()=>{requireActive(expectedEpoch);return engine.input(events);});if(events.some(event=>event?.type==='pointer'&&event.phase==='up'))void control.probeTabs();return result;};
-	  control.navigate=async(value,expectedEpoch)=>{requireActive(expectedEpoch);await engineTask(async()=>{requireActive(expectedEpoch);const url=webURL(value);await resolvePublic(url.hostname);try{profileState=await captureProfile(engine,profileState,profileRevision);}catch{console.error('WPE portable profile capture deferred',row.id);}await prepareProfileOrigin(engine,url.href,profileRestoreTracker);await resetTabPreview('navigate');const navigated=await beginNavigationWithWait(engine,url.href,{timeoutMs:45000,pause:sleep});recordMetadata(control.row.title,navigated.url,true);if(row.preview_mode==='semantic'){await installSemantic(engine,stream,control);await primeSemantic(engine,control);}else{control.forceFrame=true;control.frameFeedbackUntil=Date.now()+1600;}await syncTabsEngine({force:true,resetOnChange:false});});if(!streamCanPush(stream))void refreshMetadata(true).catch(()=>{});};
-	  control.switchTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const handles=await engine.windowHandles();if(!Array.isArray(handles)||!handles.includes(handle))throw Error('Browser tab is no longer open');if(handle!==control.activeTab){await engine.release().catch(()=>{});await engine.switchWindow(handle);control.activeTab=handle;await resetTabPreview('tab-switch');}return syncTabsEngine({force:true});});};
-	  control.newTab=expectedEpoch=>{requireActive(expectedEpoch);return engineTask(async()=>{requireActive(expectedEpoch);await resolvePublic('duckduckgo.com');const created=await engine.newWindow('tab'),handle=created?.handle;if(!validTabHandle(handle))throw Error('Browser did not create a tab');await engine.switchWindow(handle);control.activeTab=handle;await beginNavigationWithWait(engine,'https://duckduckgo.com/',{timeoutMs:45000,pause:sleep});await resetTabPreview('tab-new');return syncTabsEngine({force:true});});};
-	  control.closeTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);const handles=await engine.windowHandles();if(!Array.isArray(handles)||!handles.includes(handle))throw Error('Browser tab is no longer open');if(handles.length<=1)throw Error('The last browser tab cannot be closed');const current=await engine.currentWindow();if(current!==handle)await engine.switchWindow(handle);const remaining=await engine.closeWindow(),next=Array.isArray(remaining)&&remaining.includes(current)&&current!==handle?current:handles.filter(value=>value!==handle).at(-1);if(!validTabHandle(next))throw Error('Browser tab close did not leave an active tab');await engine.switchWindow(next);control.activeTab=next;await resetTabPreview('tab-close');return syncTabsEngine({force:true});});};
+	  control.navigate=async(value,expectedEpoch)=>{requireActive(expectedEpoch);await engineTask(async()=>{requireActive(expectedEpoch);const url=webURL(value);await resolvePublic(url.hostname);try{profileState=await captureProfile(engine,profileState,profileRevision);}catch{console.error('WPE portable profile capture deferred',row.id);}await prepareProfileOrigin(engine,url.href,profileRestoreTracker);await resetTabPreview('navigate');const navigated=await beginNavigationWithWait(engine,url.href,{timeoutMs:45000,pause:sleep});recordMetadata(control.row.title,navigated.url,true);if(row.preview_mode==='semantic'){await installSemantic(engine,stream,control);await primeSemantic(engine,control);}else{control.forceFrame=true;control.frameFeedbackUntil=Date.now()+1600;}await syncTabs({force:true,resetOnChange:false});});if(!streamCanPush(stream))void refreshMetadata(true).catch(()=>{});};
+	  control.switchTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);await syncTabsEngine({resetOnChange:false});if(!control.tabs.some(tab=>tab.handle===handle))throw Error('Browser tab is no longer open');if(handle!==control.activeTab){await engine.release().catch(()=>{});await engine.switchWindow(handle);control.activeTab=handle;await resetTabPreview('tab-switch');}return syncTabsEngine({force:true,resetOnChange:false});});};
+	  control.newTab=expectedEpoch=>{requireActive(expectedEpoch);return engineTask(async()=>{requireActive(expectedEpoch);await engine.release().catch(()=>{});await engine.newWindow('tab');await resetTabPreview('tab-new');return syncTabsEngine({activateNew:true,force:true,resetOnChange:false});});};
+	  control.closeTab=(handle,expectedEpoch)=>{requireActive(expectedEpoch);if(!validTabHandle(handle))throw Error('Invalid browser tab');return engineTask(async()=>{requireActive(expectedEpoch);await syncTabsEngine({resetOnChange:false});if(!control.tabs.some(tab=>tab.handle===handle))throw Error('Browser tab is no longer open');if(control.tabs.length<=1)throw Error('The last browser tab cannot be closed');const previous=control.activeTab;await engine.release().catch(()=>{});if(handle!==control.activeTab)await engine.switchWindow(handle);const closed=await engine.closeWindow(),handles=Array.isArray(closed)?closed.filter(validTabHandle):(await engine.windowHandles()).filter(validTabHandle);if(!handles.length)throw Error('Browser has no open tabs');const next=previous!==handle&&handles.includes(previous)?previous:handles.at(-1);await engine.switchWindow(next);control.activeTab=next;await resetTabPreview('tab-close');return syncTabsEngine({force:true,resetOnChange:false});});};
 	  await engineTask(()=>syncTabsEngine({force:true,resetOnChange:false}));
 	  const processQueuedCommand=async()=>{
 	   let command=null;try{[command]=await rpc('claim_command',{p_session:row.id});}catch(error){if(Date.now()>leaseDeadline)throw Error('Database lease lost',{cause:error});return;}
 	   if(!command)return;
     if(control.stop&&command.kind!=='stop'){await query(db.from('browser_commands').update({status:'failed',payload:{},error:'Browser session has ended.',finished_at:new Date().toISOString()}).eq('id',command.id));return;}
     try{
-     const payload=command.payload.encrypted?unseal(command.payload.encrypted,row.user_id):command.payload;let result={};
+     const payload=command.payload.encrypted?unseal(command.payload.encrypted,row.user_id):command.payload,expectedEpoch=commandEpoch(control,command);let result={};
      if(command.kind==='stop'){control.stop=true;control.wake?.();control.wake=null;}
-     else if(command.kind==='navigate'){await control.navigate(payload.url);}
-     else if(command.kind==='click')await control.applyInput([{type:'pointer',phase:'down',x:Math.round(payload.x),y:Math.round(payload.y),button:0},{type:'pointer',phase:'up',x:Math.round(payload.x),y:Math.round(payload.y),button:0}]);
-     else if(command.kind==='type')await control.applyInput([{type:'text',text:payload.text}]);
-     else if(command.kind==='key')await control.applyInput(keyEvents(payload.key));
-     else if(command.kind==='scroll')await control.applyInput([{type:'wheel',x:640,y:400,delta_x:0,delta_y:Math.round(payload.delta)}]);
-     else if(command.kind==='input')await control.applyInput(payload.events);
-     else if(command.kind==='snapshot')result={snapshot:serializeSnapshot(await engineTask(()=>engine.snapshot()))};
-     else if(command.kind==='evaluate')result={evaluation:await engineTask(()=>engine.evaluate(payload.expression))};
+     else if(command.kind==='navigate'){await control.navigate(payload.url,expectedEpoch);}
+     else if(command.kind==='click')await control.applyInput([{type:'pointer',phase:'down',x:Math.round(payload.x),y:Math.round(payload.y),button:0},{type:'pointer',phase:'up',x:Math.round(payload.x),y:Math.round(payload.y),button:0}],expectedEpoch);
+     else if(command.kind==='drag')await control.applyInput(dragInputEvents(payload),expectedEpoch);
+     else if(command.kind==='type')await control.applyInput([{type:'text',text:payload.text}],expectedEpoch);
+     else if(command.kind==='key')await control.applyInput(keyEvents(payload.key),expectedEpoch);
+     else if(command.kind==='scroll')await control.applyInput([{type:'wheel',x:640,y:400,delta_x:0,delta_y:Math.round(payload.delta)}],expectedEpoch);
+     else if(command.kind==='input')await control.applyInput(payload.events,expectedEpoch);
+     else if(command.kind==='snapshot')result={snapshot:serializeSnapshot(await engineTask(()=>{requireActive(expectedEpoch);return engine.snapshot();})),tabs:await control.probeTabs().then(()=>control.tabs),active_tab:control.activeTab};
+     else if(command.kind==='tabs')result={tabs:await control.probeTabs().then(()=>control.tabs),active_tab:control.activeTab};
+     else if(command.kind==='tab_switch')result={tabs:await control.switchTab(payload.handle,expectedEpoch),active_tab:control.activeTab};
+     else if(command.kind==='tab_new')result={tabs:await control.newTab(expectedEpoch),active_tab:control.activeTab};
+     else if(command.kind==='tab_close')result={tabs:await control.closeTab(payload.handle,expectedEpoch),active_tab:control.activeTab};
+     else if(command.kind==='evaluate')result={evaluation:await engineTask(()=>{requireActive(expectedEpoch);return engine.evaluate(payload.expression);})};
      else if(command.kind==='credential'){
-      const credential=await query(db.from('credentials').select('*').eq('id',payload.credential_id).eq('user_id',row.user_id).single());await engineTask(async()=>{const current=new URL(await engine.url());if(current.protocol!=='https:'||current.hostname!==credential.hostname)throw Error('Credential hostname mismatch');await engine.input([{type:'text',text:unseal(credential.encrypted_value,row.user_id)}]);});
+      await fencedLookup(()=>query(db.from('credentials').select('*').eq('id',payload.credential_id).eq('user_id',row.user_id).single()),credential=>engineTask(async()=>{requireActive(expectedEpoch);const current=new URL(await engine.url());requireActive(expectedEpoch);if(current.protocol!=='https:'||current.hostname!==credential.hostname)throw Error('Credential hostname mismatch');await engine.input([{type:'text',text:unseal(credential.encrypted_value,row.user_id)}]);}),()=>requireActive(expectedEpoch));
      }else if(command.kind==='vault'){
-      const vault=await query(db.from('vaults').select('*').eq('id',payload.vault_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single());await engineTask(async()=>{const current=new URL(await engine.url());if(current.protocol!=='https:'||current.hostname!==vault.hostname)throw Error('Vault hostname mismatch');await engine.input([{type:'text',text:unseal(vault.encrypted_value,row.user_id)}]);});
+      await fencedLookup(()=>query(db.from('vaults').select('*').eq('id',payload.vault_id).eq('user_id',row.user_id).eq('project_id',row.project_id).single()),vault=>engineTask(async()=>{requireActive(expectedEpoch);const current=new URL(await engine.url());requireActive(expectedEpoch);if(current.protocol!=='https:'||current.hostname!==vault.hostname)throw Error('Vault hostname mismatch');await engine.input([{type:'text',text:unseal(vault.encrypted_value,row.user_id)}]);}),()=>requireActive(expectedEpoch));
      }else throw Error('Unsupported browser command');
      await query(db.from('browser_commands').update({status:'completed',payload:{},result:{url:await engineTask(()=>engine.url()),...result},finished_at:new Date().toISOString()}).eq('id',command.id));
     }catch(error){
@@ -373,17 +379,16 @@ async function runSession(row){
    if(!control.stop&&!control.inputPriority&&control.pixelActive&&streamCanPush(stream)&&(control.forceFrame||frameFeedbackPending||!lastPreviewHash||Date.now()-lastVisualProbe>250)){
     const forceFrame=control.forceFrame;if(forceFrame)control.forceFrame=false;
     try{
-     // Input feedback reads pixels directly from the compositor, outside the
-     // WebDriver queue. This keeps mouse/keyboard ACKs independent from PNG
-     // capture while still probing DOM revisions during normal observation.
-     const feedbackCapture=(forceFrame||frameFeedbackPending)&&Boolean(lastPreviewHash),visual=feedbackCapture?{title:control.row.title,url:control.row.url}:await engineTask(()=>engine.visualState()),visualKey=feedbackCapture?lastVisualState:`${visual.url||''}\n${Number(visual.timeOrigin)||0}\n${Number(visual.revision)||0}`;
+     // WPE execute-script commands can remain blocked while a remote document
+     // is loading. Keep Visual entirely on the independent compositor path;
+     // the frame hash suppresses unchanged network frames without putting
+     // screenshot or DOM probes in front of direct input acknowledgements.
+     const visual={title:control.row.title,url:control.row.url};
      lastVisualProbe=Date.now();
-     if(forceFrame||frameFeedbackPending||!lastPreviewHash||visualKey!==lastVisualState){
-      const preview=await publish(engine,stream,lastPreviewHash,lastPreviewState,forceFrame,streamCanPush(stream),visual);
-      if(preview.delivered){lastPreviewHash=preview.hash;lastPreviewState=preview.state;recordMetadata(preview.title,preview.url);queueProfileOriginRestore(preview.url);if(preview.changed){control.frameFeedbackUntil=0;if(!feedbackCapture){const settled=await engineTask(()=>engine.visualState());lastVisualState=`${settled.url||''}\n${Number(settled.timeOrigin)||0}\n${Number(settled.revision)||0}`;}}else if(!frameFeedbackPending)lastVisualState=visualKey;}
-      else if(forceFrame)control.forceFrame=true;
-      lastPreview=Date.now();
-     }else lastVisualState=visualKey;
+     const preview=await publish(engine,stream,lastPreviewHash,lastPreviewState,forceFrame,streamCanPush(stream),visual);
+     if(preview.delivered){lastPreviewHash=preview.hash;lastPreviewState=preview.state;recordMetadata(preview.title,preview.url);queueProfileOriginRestore(preview.url);}
+     else if(forceFrame)control.forceFrame=true;
+     lastPreview=Date.now();
     }
     catch(error){if(isFatalEngineFailure(error)){driverReusable=false;throw error;}control.forceFrame=true;lastPreview=Date.now()+875;console.error('WPE visual preview retry',row.id,String(error.message).slice(0,120));}
    }
@@ -400,27 +405,19 @@ async function runSession(row){
    else try{await engine.close();}catch(error){driverReusable=!engine.sessionId;}
   }
   if(!driverReusable){restartRequested=true;console.error('WPE driver slot quarantined; worker recycle requested',driverURL);}
-  let profileWorkspacePersisted=!nativeProfileDir||!row.profile_id||!profileState||!started;
+  let profilePersisted=!row.profile_id||!profileState||!started;
   if(row.profile_id&&profileState&&started&&driverReusable){
-   let portableSaved=false,persistenceFailure=false;try{await persistProfile(row,profileState);portableSaved=true;}catch{persistenceFailure=true;console.error('WPE profile state save failed',row.id);}
-   // Commit the portable revision first. If the native upload fails, the next
-   // launch replays only origins captured at this revision; older origins stay
-   // authoritative in the previous native archive.
-   let nativeSaved=false;if(portableSaved&&nativeProfileDir&&engine)try{await persistNativeProfile(row,nativeProfileDir,profileRevision);nativeSaved=true;}catch{persistenceFailure=true;console.error('WPE native profile save failed',row.id);}
-   if(nativeSaved){profileState={...profileState,nativeRevision:profileRevision};try{await persistProfile(row,profileState);}catch{console.error('WPE native profile revision sync deferred',row.id);}}
-   profileWorkspacePersisted=portableSaved&&(!nativeProfileDir||nativeSaved);
-   if(persistenceFailure||!profileWorkspacePersisted){terminal='failed';failure='Browser profile persistence did not complete. The local recovery workspace was retained.';}
+   try{await persistProfile(row,{...profileState,nativeRevision:0});profilePersisted=true;}catch{console.error('WPE profile state save failed',row.id);}
+   if(!profilePersisted){terminal='failed';failure='Browser profile persistence did not complete.';}
   }
-  if(nativeProfileDir&&driverReusable&&profileWorkspacePersisted)await removeProfile(nativeProfileWorkspace(row),row.user_id,row.profile_id).catch(()=>{});
-  else if(nativeProfileDir)console.error('WPE native profile directory retained for recovery',row.id);
   await metadataWrite.catch(()=>{});await flushActions(control);proxy?.close();if(driverURL&&driverReusable&&!restartRequested)freeDrivers.push(driverURL);for(let attempt=0;attempt<3;attempt++){try{await rpc('finish_session',{p_session:row.id,p_status:terminal,p_error:failure});break;}catch{await sleep(1000);}}active.delete(row.id);
  }
 }
-process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=true;});console.log('jet-browser WPE worker starting',worker);
+process.on('SIGTERM',()=>{stopping=true;});process.on('SIGINT',()=>{stopping=true;});console.log('jet-browser WPE worker starting',worker,region);
 let heartbeatInFlight=false;
 const heartbeatWorker=async()=>{
  if(heartbeatInFlight)return;heartbeatInFlight=true;
- try{await query(db.from('workers').upsert({id:worker,heartbeat_at:new Date().toISOString(),capacity:draining&&drainAcknowledged?0:capacity,active_sessions:active.size,version:'0.5.75-style-settled',direct_url:directURL,direct_updated_at:directURL?new Date().toISOString():null}));}
+ try{const host=readHostResources(),memory=process.memoryUsage(),row={id:worker,region,heartbeat_at:new Date().toISOString(),capacity:draining&&drainAcknowledged?0:capacity,active_sessions:active.size,draining,started_at:workerStartedAt,resource:{cpu_count:host.cpuCount,load_1:Number(host.load1.toFixed(2)),memory_total_bytes:host.totalMemoryBytes,memory_available_bytes:host.availableMemoryBytes,rss_bytes:memory.rss,heap_used_bytes:memory.heapUsed,driver_slots:capacity,free_driver_slots:freeDrivers.length},version:workerVersion};if(!sharedDirectRouter){row.direct_url=directURL;row.direct_updated_at=directURL?new Date().toISOString():null;}const registered=await query(db.from('workers').upsert(row).select('direct_url').single());if(sharedDirectRouter)directURL=registered.direct_url?.startsWith('https://')?registered.direct_url:null;}
  catch{console.error('WPE worker heartbeat failed');}
  finally{heartbeatInFlight=false;}
 };
@@ -428,6 +425,6 @@ const acknowledgeDrain=()=>{if(draining&&!claimInFlight){drainAcknowledged=true;
 process.on('SIGUSR1',()=>{draining=true;drainAcknowledged=false;acknowledgeDrain();});
 process.on('SIGUSR2',()=>{draining=false;drainAcknowledged=false;void heartbeatWorker();});
 await heartbeatWorker();const heartbeatTimer=setInterval(()=>{void heartbeatWorker();},5000);heartbeatTimer.unref();
-while(!stopping){if(restartRequested&&active.size===0){stopping=true;break;}try{await rpc('expire_sessions',{});if(!restartRequested&&!draining&&directURL&&active.size<capacity&&freeDrivers.length){let row;claimInFlight=true;try{[row]=await rpc('claim_session',{p_worker:worker});}finally{claimInFlight=false;}if(row)void runSession(row);acknowledgeDrain();}}catch{claimInFlight=false;acknowledgeDrain();console.error('WPE worker control-plane connection failed');}await sleep(1500);}
+while(!stopping){if(restartRequested&&active.size===0){stopping=true;break;}try{await rpc('expire_sessions',{});if(!restartRequested&&!draining&&directURL&&active.size<capacity&&freeDrivers.length){let row;claimInFlight=true;try{[row]=await rpc('claim_regional_session',{p_worker:worker,p_region:region});}finally{claimInFlight=false;}if(row)void runSession(row);acknowledgeDrain();}}catch{claimInFlight=false;acknowledgeDrain();console.error('WPE worker control-plane connection failed');}await sleep(1500);}
 clearInterval(heartbeatTimer);while(active.size)await sleep(250);stopTunnel();await dataPlane.close();await db.from('workers').delete().eq('id',worker);
 if(restartRequested)process.exitCode=1;

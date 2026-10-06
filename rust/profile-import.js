@@ -1,4 +1,4 @@
-const state=arguments[0],done=arguments[arguments.length-1],restore=state.restore||{};
+const state=arguments[0],expectedOrigin=typeof arguments[1]==='string'?arguments[1]:'',done=arguments[arguments.length-1],restore=state.restore||{};
 const base64ToBytes=value=>Uint8Array.from(atob(value),character=>character.charCodeAt(0));
 const decode=async value=>{
  if(value===null||typeof value!=='object')return value;
@@ -25,6 +25,7 @@ const deleteDatabase=name=>new Promise((resolve,reject)=>{const request=indexedD
 const decodeStore=async schema=>({schema,records:await Promise.all((schema.records||[]).map(async record=>({key:await decode(record.key),value:await decode(record.value)})))});
 const writeStore=(database,prepared)=>new Promise((resolve,reject)=>{const {schema,records}=prepared;if(!database.objectStoreNames.contains(schema.name)){reject(new Error('IndexedDB schema changed'));return}const transaction=database.transaction(schema.name,'readwrite'),store=transaction.objectStore(schema.name);transaction.onerror=()=>reject(transaction.error);transaction.onabort=()=>reject(transaction.error||new Error('IndexedDB transaction aborted'));transaction.oncomplete=()=>resolve();store.clear();for(const record of records){if(schema.keyPath===null||schema.keyPath===undefined)store.put(record.value,record.key);else store.put(record.value);}});
 (async()=>{
+ if(expectedOrigin&&location.origin!==expectedOrigin)throw new Error('Profile origin changed before import');
  if(restore.local_storage!==false){localStorage.clear();for(const item of state.local_storage||[])localStorage.setItem(item.name,item.value);}
  if(restore.session_storage!==false){sessionStorage.clear();for(const item of state.session_storage||[])sessionStorage.setItem(item.name,item.value);}
  const existing=new Set((typeof indexedDB.databases==='function'?await indexedDB.databases():[]).map(item=>item.name).filter(Boolean));

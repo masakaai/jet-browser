@@ -21,6 +21,7 @@ const openDatabase=name=>new Promise((resolve,reject)=>{const request=indexedDB.
 const cursorEntries=store=>new Promise((resolve,reject)=>{const values=[],request=store.openCursor();request.onerror=()=>reject(request.error);request.onsuccess=()=>{const cursor=request.result;if(!cursor){resolve(values);return}try{values.push({key:cursor.key,value:cursor.value});if(values.length>10000)throw new Error('IndexedDB store exceeds 10000 records');cursor.continue()}catch(error){reject(error)}};});
 const encodeEntries=async records=>{const result=[];for(const record of records)result.push({key:await encode(record.key),value:await encode(record.value)});return result;};
 (async()=>{
+ const visible_cookies=String(document.cookie||'').split(';').map(item=>item.trim()).filter(Boolean).slice(0,500).map(item=>{const separator=item.indexOf('='),name=separator<0?item:item.slice(0,separator),value=separator<0?'':item.slice(separator+1);return {name,value,domain:location.hostname,path:'/',expiry:-1,httpOnly:false,secure:location.protocol==='https:',sameSite:'Lax'};}).filter(cookie=>cookie.name&&cookie.name.length<=256&&cookie.value.length<=4096);
  const local_storage=Array.from({length:localStorage.length},(_,index)=>localStorage.key(index)).map(name=>({name,value:localStorage.getItem(name)}));
  const session_storage=Array.from({length:sessionStorage.length},(_,index)=>sessionStorage.key(index)).map(name=>({name,value:sessionStorage.getItem(name)}));
  const indexed_db=[];
@@ -31,5 +32,5 @@ const encodeEntries=async records=>{const result=[];for(const record of records)
  }
  const cache_storage=[];
  if(typeof caches!=='undefined')for(const name of (await caches.keys()).slice(0,64)){const cache=await caches.open(name),entries=[];for(const request of (await cache.keys()).slice(0,1000)){const response=await cache.match(request);if(!response||response.status===0)continue;entries.push({request:{url:request.url,method:request.method,headers:Array.from(request.headers.entries())},response:{status:response.status,statusText:response.statusText,headers:Array.from(response.headers.entries()),body:bytesToBase64(new Uint8Array(await response.arrayBuffer()))}});}cache_storage.push({name,entries});}
- done({local_storage,session_storage,indexed_db,cache_storage});
+ done({visible_cookies,local_storage,session_storage,indexed_db,cache_storage});
 })().catch(error=>done({__masaka_error:String(error?.message||error).slice(0,2000)}));
