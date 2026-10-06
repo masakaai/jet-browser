@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-06T05:29:02.040Z",
+  "method": {
+    "targetUrl": "https://masaka-ai.vercel.app/browser-check.html",
+    "expectations": {
+      "expectTitle": "MASAKA browser verification",
+      "expectSelector": "#save"
+    },
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "runs": 3,
+    "concurrency": 1,
+    "order": [
+      "masaka"
+    ],
+    "metrics": [
+      "targetReadyMs",
+      "scriptRoundTripMs",
+      "stopMs"
+    ]
+  },
+  "runtime": {
+    "node": "v26.3.1",
+    "platform": "darwin",
+    "architecture": "arm64"
+  },
+  "providers": {
+    "masaka": {
+      "status": "measured",
+      "summary": {
+        "requested": 3,
+        "passed": 3,
+        "failed": 0,
+        "successRate": 1,
+        "targetReadyMs": {
+          "count": 3,
+          "min": 5201,
+          "median": 5831,
+          "p95": 6458,
+          "max": 6458,
+          "mean": 5830
+        },
+        "scriptRoundTripMs": {
+          "count": 3,
+          "min": 938,
+          "median": 1674,
+          "p95": 1677,
+          "max": 1677,
+          "mean": 1430
+        },
+        "stopMs": {
+          "count": 3,
+          "min": 328,
+          "median": 360,
+          "p95": 364,
+          "max": 364,
+          "mean": 351
+        }
+      },
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "region": "overseas",
+          "targetReadyMs": 6458,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 1674,
+          "stopMs": 364
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "region": "overseas",
+          "targetReadyMs": 5201,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 938,
+          "stopMs": 328
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "region": "overseas",
+          "targetReadyMs": 5831,
+          "title": "MASAKA browser verification",
+          "url": "https://masaka-ai.vercel.app/browser-check.html",
+          "scriptRoundTripMs": 1677,
+          "stopMs": 360
+        }
+      ]
+    }
+  }
+}
