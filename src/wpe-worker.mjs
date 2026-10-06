@@ -24,7 +24,7 @@ import {browserRegion} from './region.mjs';
 import {dragInputEvents} from './drag-input.mjs';
 
 const db=createClient(process.env.SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(url,options={})=>fetch(url,{...options,signal:AbortSignal.timeout(15000)})}});
-const worker=process.env.WORKER_ID||'deeptensor-wpe-01',region=browserRegion(process.env.MASAKA_BROWSER_REGION),workerVersion=process.env.MASAKA_WORKER_VERSION||'0.6.4',workerStartedAt=new Date().toISOString(),driverURLs=(process.env.WPE_WEBDRIVER_URLS||'http://127.0.0.1:9515,http://127.0.0.1:9516').split(',').map(value=>value.trim()).filter(Boolean),captureURLs=(process.env.WPE_CAPTURE_URLS||'http://127.0.0.1:9615,http://127.0.0.1:9616').split(',').map(value=>value.trim()).filter(Boolean),capacity=Math.min(Number(process.env.WORKER_CAPACITY||2),driverURLs.length,captureURLs.length);
+const worker=process.env.WORKER_ID||'deeptensor-wpe-01',region=browserRegion(process.env.MASAKA_BROWSER_REGION),workerVersion=process.env.MASAKA_WORKER_VERSION||'0.6.5',workerStartedAt=new Date().toISOString(),driverURLs=(process.env.WPE_WEBDRIVER_URLS||'http://127.0.0.1:9515,http://127.0.0.1:9516').split(',').map(value=>value.trim()).filter(Boolean),captureURLs=(process.env.WPE_CAPTURE_URLS||'http://127.0.0.1:9615,http://127.0.0.1:9616').split(',').map(value=>value.trim()).filter(Boolean),capacity=Math.min(Number(process.env.WORKER_CAPACITY||2),driverURLs.length,captureURLs.length);
 const active=new Map(),freeDrivers=[...driverURLs];let stopping=false,restartRequested=false,draining=false,claimInFlight=false,drainAcknowledged=false;
 const sharedDirectRouter=process.env.MASAKA_SHARED_DIRECT_ROUTER==='1';
 const profileBucket=process.env.PROFILE_BUCKET||'browser-profiles';
@@ -40,7 +40,7 @@ async function uploadProfileObject(object,bundle){let result;for(let attempt=0;a
 async function removeProfileObject(object){let result;for(let attempt=0;attempt<3;attempt++){result=await db.storage.from(profileBucket).remove([object]);if(!result.error||missingObject(result.error))return result;if(attempt<2)await sleep(500*(attempt+1));}return result;}
 const ticketSecret=process.env.DATA_PLANE_TICKET_SECRET||process.env.VAULT_ENCRYPTION_KEY;
 if(!ticketSecret||ticketSecret.length<32)throw Error('The data-plane ticket secret must contain at least 32 characters');
-const dataPlane=createDirectServer({active,worker,secret:ticketSecret,host:sharedDirectRouter?'0.0.0.0':'127.0.0.1'});
+const dataPlane=createDirectServer({active,worker,secret:ticketSecret,metricsToken:process.env.MASAKA_METRICS_TOKEN||'',host:sharedDirectRouter?'0.0.0.0':'127.0.0.1'});
 let directURL=null;
 const stopTunnel=sharedDirectRouter?()=>{}:startQuickTunnel(url=>{directURL=url;void db.from('workers').update({direct_url:url,direct_updated_at:new Date().toISOString()}).eq('id',worker);});
 const profileObject=row=>`${row.user_id}/${row.profile_id}.bundle`;

@@ -32,6 +32,10 @@ No external provider is assigned a zero, estimated number, or copied marketing n
 - [Browser Use benchmark repository](https://github.com/browser-use/benchmark)
 - [Kernel browser session API](https://www.kernel.sh/docs/api-reference/browsers/list-browser-sessions)
 - [Kernel product and protocol overview](https://www.kernel.sh/)
+- [Kernel Images browser runtime](https://github.com/kernel/kernel-images)
+- [Kernel TypeScript SDK](https://github.com/kernel/kernel-node-sdk)
+- [Kernel Browser Loop tool catalog](https://github.com/kernel/browser-loop)
+- [Kernel remote browser benchmark](https://github.com/kernel/browserbench)
 - [Lightpanda repository and benchmark method](https://github.com/lightpanda-io/browser)
 - [Steel Browser repository](https://github.com/steel-dev/steel-browser)
 

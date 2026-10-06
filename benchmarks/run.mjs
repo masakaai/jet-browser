@@ -174,7 +174,7 @@ async function masakaClient(environment) {
   return new AccountMasakaClient({ accessToken, projectId, baseUrl });
 }
 
-async function runMasaka({ environment, targetUrl, region, run, expectations }) {
+async function runMasaka({ environment, targetUrl, region, run, expectations, warmup = false }) {
   let client, session;
   const sample = { run, status: 'failed', stage: 'authenticate' };
   let started;
@@ -183,12 +183,14 @@ async function runMasaka({ environment, targetUrl, region, run, expectations }) 
     if (!client) return { skipped: 'Set MASAKA_API_KEY (or MASAKA_ACCESS_TOKEN and MASAKA_PROJECT_ID)' };
     sample.stage = 'create';
     started = performance.now();
+    const createStarted = performance.now();
     session = await client.create({
       url: targetUrl,
       region,
       maxSeconds: 180,
-      name: `Runtime benchmark ${run}`
+      name: warmup ? `Runtime benchmark warmup ${run}` : `Runtime benchmark ${run}`
     });
+    sample.sessionCreateMs = Math.round(performance.now() - createStarted);
     sample.stage = 'ready';
     const ready = await client.waitForReady(session.id, { timeout: 90_000 });
     if (ready.worker_version) sample.workerVersion = ready.worker_version;
@@ -199,6 +201,7 @@ async function runMasaka({ environment, targetUrl, region, run, expectations }) 
     const pageResult = await client.evaluate(session.id, `(()=>{const selector=${selector};return {title:document.title,hasBody:Boolean(document.body),marker:selector?Boolean(document.querySelector(selector)):null,url:location.href}})()`);
     const page = verifyTarget(masakaEvaluationValue(pageResult), expectations);
     sample.targetReadyMs = Math.round(performance.now() - started);
+    sample.targetLoadAndVerifyMs = Math.max(0, sample.targetReadyMs - sample.sessionCreateMs);
     sample.title = page?.title || null;
     sample.url = safeReportUrl(page?.url || ready.url || targetUrl);
 
@@ -273,16 +276,21 @@ async function runExternal({ provider, environment, targetUrl, run, expectations
   const sample = { run, status: 'failed', stage: 'create' };
   const started = performance.now();
   try {
+    const createStarted = performance.now();
     managed = await adapter.create(key);
+    sample.sessionCreateMs = Math.round(performance.now() - createStarted);
     if (!managed.cdpUrl) throw Error('Provider did not return a CDP URL');
     sample.stage = 'connect';
+    const connectStarted = performance.now();
     browser = await chromium.connectOverCDP(managed.cdpUrl, { timeout: 60_000 });
+    sample.sessionConnectMs = Math.round(performance.now() - connectStarted);
     sample.region = managed.region;
 
     const context = browser.contexts()[0];
     if (!context) throw Error('Provider did not return a browser context');
     const page = context.pages()[0] || await context.newPage();
     sample.stage = 'page';
+    const navigationStarted = performance.now();
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     const inspected = verifyTarget(await page.evaluate(selector => ({
       title: document.title,
@@ -292,6 +300,7 @@ async function runExternal({ provider, environment, targetUrl, run, expectations
     }), expectations.expectSelector || null), expectations);
     sample.title = inspected.title;
     sample.url = safeReportUrl(inspected.url || page.url());
+    sample.targetLoadAndVerifyMs = Math.round(performance.now() - navigationStarted);
     sample.targetReadyMs = Math.round(performance.now() - started);
 
     sample.stage = 'script';
@@ -318,7 +327,10 @@ async function runExternal({ provider, environment, targetUrl, run, expectations
   return { sample };
 }
 
-export async function runBenchmark({ providers, runs, targetUrl, region = 'overseas', expectTitle, expectSelector, environment = process.env }) {
+export async function runBenchmark({ providers, runs, warmups = 0, targetUrl, region = 'overseas', expectTitle, expectSelector, environment = process.env }) {
+  if (!Array.isArray(providers) || providers.length === 0 || providers.some(value => !providerNames.includes(value))) throw Error('Provide at least one known benchmark provider');
+  if (!Number.isInteger(runs) || runs < 1 || runs > 100) throw Error('runs must be an integer from 1 to 100');
+  if (!Number.isInteger(warmups) || warmups < 0 || warmups > 100) throw Error('warmups must be an integer from 0 to 100');
   const normalizedTarget = new URL(targetUrl).href;
   const isDefaultTarget = normalizedTarget === new URL(defaultTargetUrl).href;
   const expectations = {
@@ -327,23 +339,41 @@ export async function runBenchmark({ providers, runs, targetUrl, region = 'overs
   };
   if (!expectations.expectTitle && !expectations.expectSelector) throw Error('Provide expectTitle or expectSelector for a custom benchmark target');
   const report = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     capturedAt: new Date().toISOString(),
     method: {
       targetUrl: safeReportUrl(normalizedTarget),
       expectations,
       viewport: { width: 1280, height: 800 },
       runs,
+      warmups,
       concurrency: 1,
       order: providers,
-      metrics: ['targetReadyMs', 'scriptRoundTripMs', 'stopMs']
+      metrics: ['sessionCreateMs', 'sessionConnectMs', 'targetLoadAndVerifyMs', 'targetReadyMs', 'scriptRoundTripMs', 'stopMs']
     },
     runtime: { node: process.version, platform: process.platform, architecture: process.arch },
     providers: {}
   };
 
   for (const provider of providers) {
+    const warmupSamples = [];
     const samples = [];
+    for (let run = 1; run <= warmups; run += 1) {
+      let result;
+      try {
+        result = provider === 'masaka'
+          ? await runMasaka({ environment, targetUrl: normalizedTarget, region, run, expectations, warmup: true })
+          : await runExternal({ provider, environment, targetUrl: normalizedTarget, run, expectations });
+      } catch (error) {
+        result = { sample: { run, status: 'failed', stage: 'initialize', error: safeError(error) } };
+      }
+      if (result.skipped) {
+        report.providers[provider] = { status: 'skipped', reason: result.skipped };
+        break;
+      }
+      warmupSamples.push({ ...result.sample, warmup: true });
+    }
+    if (report.providers[provider]) continue;
     for (let run = 1; run <= runs; run += 1) {
       let result;
       try {
@@ -360,7 +390,13 @@ export async function runBenchmark({ providers, runs, targetUrl, region = 'overs
       samples.push(result.sample);
     }
     if (!report.providers[provider]) {
-      report.providers[provider] = { status: samples.some(sample => sample.status === 'passed') ? 'measured' : 'failed', summary: summarizeSamples(samples), samples };
+      report.providers[provider] = {
+        status: samples.some(sample => sample.status === 'passed') ? 'measured' : 'failed',
+        warmup: summarizeSamples(warmupSamples),
+        warmup_samples: warmupSamples,
+        summary: summarizeSamples(samples),
+        samples
+      };
     }
   }
   return report;
@@ -373,6 +409,8 @@ async function main() {
   if (unknown.length) throw Error(`Unknown provider: ${unknown.join(', ')}`);
   const runs = Number(args.runs || 5);
   if (!Number.isInteger(runs) || runs < 1 || runs > 100) throw Error('--runs must be an integer from 1 to 100');
+  const warmups = Number(args.warmups || 0);
+  if (!Number.isInteger(warmups) || warmups < 0 || warmups > 100) throw Error('--warmups must be an integer from 0 to 100');
   const targetUrl = new URL(args.url || defaultTargetUrl);
   if (!['http:', 'https:'].includes(targetUrl.protocol)) throw Error('--url must use http or https');
   const customTarget = Boolean(args.url);
@@ -380,6 +418,7 @@ async function main() {
   const report = await runBenchmark({
     providers,
     runs,
+    warmups,
     targetUrl: targetUrl.href,
     region: args.region || process.env.MASAKA_BROWSER_REGION || 'overseas',
     expectTitle: args['expect-title'],

@@ -13,7 +13,7 @@ test('public README has portable links and no private machine paths', async () =
   assert.match(readme, /npm run demo/);
   assert.match(readme, /npm run benchmark/);
   for (const locale of locales) await access(resolve(root, `README.${locale}.md`));
-  for (const path of ['docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'examples/quickstart.mjs', 'benchmarks/run.mjs']) await access(resolve(root, path));
+  for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'docs/kernel-open-source-review.md', 'examples/quickstart.mjs', 'benchmarks/run.mjs', 'sdk/tools.mjs', 'sdk/transport.mjs']) await access(resolve(root, path));
 });
 
 test('package and default worker versions stay aligned', async () => {
@@ -23,4 +23,14 @@ test('package and default worker versions stay aligned', async () => {
   const version = worker.match(/MASAKA_WORKER_VERSION\|\|'([^']+)'/)?.[1];
   assert.equal(version, packageJson.version);
   assert.match(cargo, new RegExp(`^version = "${packageJson.version.replaceAll('.', '\\.')}"$`, 'm'));
+});
+
+test('package exports preserve legacy SDK subpaths alongside stable aliases', async () => {
+  const modern = await import('jet-browser');
+  const legacyClient = await import('jet-browser/sdk/client.mjs');
+  const legacyBrowser = await import('jet-browser/sdk/browser.mjs');
+  assert.equal(modern.JetBrowser, legacyClient.JetBrowser);
+  assert.equal(typeof legacyBrowser.MasakaBrowserClient, 'function');
+  assert.equal(typeof (await import('jet-browser/tools')).compileToolCatalog, 'function');
+  assert.equal(typeof (await import('jet-browser/sdk/transport.mjs')).MasakaTransport, 'function');
 });

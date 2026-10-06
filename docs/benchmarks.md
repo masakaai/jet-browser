@@ -15,15 +15,17 @@ These are single end-to-end production samples, not an SLA or a percentile distr
 
 The current publication artifact is [`results/masaka-production-2026-10-06.json`](../benchmarks/results/masaka-production-2026-10-06.json). Re-run before quoting it after engine, region, tunnel, capture, viewport, or host changes.
 
-The new provider-neutral harness was also run three times against the same production target on 2026-10-06:
+The provider-neutral v2 harness was run with one warmup followed by three measured lifecycles against the same production target on 2026-10-06:
 
-| Metric | Median | p95 | Success |
-| --- | ---: | ---: | ---: |
-| Target verified | 5,831 ms | 6,458 ms | 3/3 |
-| Script round trip | 1,674 ms | 1,677 ms | 3/3 |
-| Stop and release | 360 ms | 364 ms | 3/3 |
+| Metric | Median | p95 | Stddev | Success |
+| --- | ---: | ---: | ---: | ---: |
+| Session create | 358 ms | 360 ms | 18 ms | 3/3 |
+| Target load and verification | 4,035 ms | 4,149 ms | 203 ms | 3/3 |
+| Create through target verified | 4,395 ms | 4,469 ms | 192 ms | 3/3 |
+| Script round trip | 979 ms | 1,031 ms | 180 ms | 3/3 |
+| Stop and release | 1,301 ms | 1,320 ms | 101 ms | 3/3 |
 
-Raw samples: [`results/masaka-runtime-2026-10-06.json`](../benchmarks/results/masaka-runtime-2026-10-06.json). This script round-trip uses the trusted server action API and its durable command completion path. It is intentionally not labeled as direct input latency; pointer and keyboard input in the signed-in UI use the persistent data plane measured separately above.
+Raw v2 evidence: [`results/masaka-runtime-2026-10-06-v2.json`](../benchmarks/results/masaka-runtime-2026-10-06-v2.json). This is a small production smoke sample, not a public percentile claim; the p95 column is the maximum of three measurements. The script round-trip uses the trusted server action API and its durable command completion path. It is intentionally not labeled as direct input latency; pointer and keyboard input in the signed-in UI use the persistent data plane measured separately above.
 
 ## Provider-neutral harness
 
@@ -32,6 +34,7 @@ Raw samples: [`results/masaka-runtime-2026-10-06.json`](../benchmarks/results/ma
 ```bash
 npm run benchmark -- \
   --providers=masaka,browser-use,kernel \
+  --warmups=3 \
   --runs=5 \
   --url=https://masaka-ai.vercel.app/browser-check.html \
   --expect-title='MASAKA browser verification' \
@@ -41,12 +44,15 @@ npm run benchmark -- \
 
 Metrics:
 
+- `sessionCreateMs`: control-plane create request. This is diagnostic: a returned queued MASAKA record and a returned ready CDP endpoint do not have identical semantics.
+- `sessionConnectMs`: CDP handshake for CDP providers. It is `null` for MASAKA because Jet Browser does not expose a public CDP endpoint.
+- `targetLoadAndVerifyMs`: provider-specific work after create/connect until the exact title/marker passes.
 - `targetReadyMs`: API create through verified target title/marker. This intentionally includes target navigation for every provider.
 - `scriptRoundTripMs`: one remote `document.title` evaluation after the page is ready.
 - `stopMs`: provider stop request through confirmation returned by the API.
 - `successRate`: successful runs divided by requested runs.
 
-The default fixture expects both the exact title and `#save` marker. A custom URL requires `--expect-title` or `--expect-selector`, so a CAPTCHA or generic access-denied page cannot silently pass. The report includes every raw sample plus min, median, p95, max, and mean. Missing provider credentials produce an explicit `skipped` record. Failed runs and cleanup failures remain in the result with the stage and a sanitized error; they are never silently discarded.
+The default fixture expects both the exact title and `#save` marker. A custom URL requires `--expect-title` or `--expect-selector`, so a CAPTCHA or generic access-denied page cannot silently pass. Warmups use the same lifecycle and cleanup rules; their aggregate and raw `warmup_samples` remain separate from measured samples. The report includes every measured raw sample plus min, median, p95, p99, max, mean, and population standard deviation. Missing provider credentials produce an explicit `skipped` record. Failed runs and cleanup failures, including warmup failures, remain in the result with the stage and a sanitized error; they are never silently discarded.
 
 ## Fair-comparison rules
 
@@ -56,7 +62,7 @@ The default fixture expects both the exact title and `#save` marker. A custom UR
 4. Publish raw samples and failures, not only the fastest number.
 5. Do not compare MASAKA input ACK with another provider's agent task completion.
 6. Record the provider region and client-to-region network RTT where available.
-7. Re-run at least five times for development and 30 times before a public percentile claim.
+7. Use at least three warmups for development; use ten warmups and 30 measured runs before a public percentile claim.
 
 ## Agent benchmarks
 

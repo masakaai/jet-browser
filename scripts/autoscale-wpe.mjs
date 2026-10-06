@@ -7,7 +7,7 @@ const region = browserRegion(process.env.MASAKA_BROWSER_REGION);
 const regionPrefix = region === "overseas" ? "" : `${region}-`;
 const prefix = process.env.MASAKA_AUTOSCALE_PREFIX || `masaka-jet-browser-wpe-${regionPrefix}auto-`;
 const workerPrefix = process.env.MASAKA_WORKER_PREFIX || `deeptensor-wpe-${regionPrefix}`;
-const image = process.env.MASAKA_WORKER_IMAGE || "masaka-jet-browser-wpe:0.6.4";
+const image = process.env.MASAKA_WORKER_IMAGE || "masaka-jet-browser-wpe:0.6.5";
 const envFile = process.env.MASAKA_WORKER_ENV || "/data0/deeptensor_engineers/lvbo/masaka/worker.env";
 const seccomp = process.env.MASAKA_SECCOMP_PROFILE || "/data0/deeptensor_engineers/lvbo/masaka/jet-browser/seccomp_profile.json";
 const dockerNetwork = process.env.MASAKA_DOCKER_NETWORK || "masaka-browser";

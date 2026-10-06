@@ -11,15 +11,16 @@ test('benchmark percentiles use nearest-rank values', () => {
 });
 
 test('benchmark summaries retain failures and summarize passed samples only', () => {
-  assert.deepEqual(summarize([10, 20, 30]), { count: 3, min: 10, median: 20, p95: 30, max: 30, mean: 20 });
+  assert.deepEqual(summarize([10, 20, 30]), { count: 3, min: 10, median: 20, p95: 30, p99: 30, max: 30, mean: 20, stddev: 8 });
   const value = summarizeSamples([
-    { status: 'passed', targetReadyMs: 200, scriptRoundTripMs: 20, stopMs: 50 },
+    { status: 'passed', sessionCreateMs: 200, targetReadyMs: 200, scriptRoundTripMs: 20, stopMs: 50 },
     { status: 'failed', stopMs: 70 }
   ]);
   assert.equal(value.requested, 2);
   assert.equal(value.passed, 1);
   assert.equal(value.failed, 1);
   assert.equal(value.successRate, 0.5);
+  assert.equal(value.sessionCreateMs.median, 200);
   assert.equal(value.targetReadyMs.median, 200);
   assert.equal(value.stopMs.median, 50);
   assert.equal(value.stopMs.max, 70);
@@ -65,12 +66,17 @@ test('MASAKA initialization failures remain in the report', async () => {
     const report = await runBenchmark({
       providers: ['masaka'],
       runs: 1,
+      warmups: 1,
       targetUrl: 'https://masaka-ai.vercel.app/browser-check.html',
       environment: { MASAKA_ACCESS_TOKEN: 'expired' }
     });
     assert.equal(report.providers.masaka.status, 'failed');
     assert.equal(report.providers.masaka.samples[0].stage, 'authenticate');
     assert.match(report.providers.masaka.samples[0].error, /expired token/);
+    assert.equal(report.providers.masaka.warmup_samples.length, 1);
+    assert.equal(report.providers.masaka.warmup_samples[0].warmup, true);
+    assert.equal(report.providers.masaka.warmup_samples[0].stage, 'authenticate');
+    assert.match(report.providers.masaka.warmup_samples[0].error, /expired token/);
   } finally { globalThis.fetch = original; }
 });
 

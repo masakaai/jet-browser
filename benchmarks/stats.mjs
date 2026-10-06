@@ -11,13 +11,17 @@ export function summarize(values) {
   const clean = values.map(Number).filter(Number.isFinite);
   if (clean.length === 0) return null;
   const total = clean.reduce((sum, value) => sum + value, 0);
+  const mean = total / clean.length;
+  const variance = clean.reduce((sum, value) => sum + ((value - mean) ** 2), 0) / clean.length;
   return {
     count: clean.length,
     min: Math.min(...clean),
     median: percentile(clean, 0.5),
     p95: percentile(clean, 0.95),
+    p99: percentile(clean, 0.99),
     max: Math.max(...clean),
-    mean: Math.round(total / clean.length)
+    mean: Math.round(mean),
+    stddev: Math.round(Math.sqrt(variance))
   };
 }
 
@@ -28,6 +32,9 @@ export function summarizeSamples(samples) {
     passed: passed.length,
     failed: samples.length - passed.length,
     successRate: samples.length ? Number((passed.length / samples.length).toFixed(4)) : 0,
+    sessionCreateMs: summarize(passed.map(sample => sample.sessionCreateMs)),
+    sessionConnectMs: summarize(passed.map(sample => sample.sessionConnectMs)),
+    targetLoadAndVerifyMs: summarize(passed.map(sample => sample.targetLoadAndVerifyMs)),
     targetReadyMs: summarize(passed.map(sample => sample.targetReadyMs)),
     scriptRoundTripMs: summarize(passed.map(sample => sample.scriptRoundTripMs)),
     stopMs: summarize(samples.map(sample => sample.stopMs))

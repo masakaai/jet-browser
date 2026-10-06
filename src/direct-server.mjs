@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { spawn } from 'node:child_process';
+import { timingSafeEqual } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 import { verifyDirectTicket } from './direct-ticket.mjs';
 import { CONTROL_TYPES } from './semantic-preview.mjs';
@@ -22,6 +23,34 @@ export const DIRECT_ACTION_TYPES=new Set(['input','navigate','tab-switch','tab-n
 export const frameBackpressured=(socket,event)=>
   (event==='frame'||event==='frame-start')&&socket.bufferedAmount>64_000;
 const readyPayload=(state,scope)=>({session_id:state.claims.sid,scope,preview_mode:state.claims.mode,viewport:state.control.row.viewport||{width:1280,height:800},tabs:state.control.tabs||[],active_tab:state.control.activeTab||null});
+
+const metricValue=value=>Number.isFinite(Number(value))&&Number(value)>=0?Number(value):0;
+const metric=(name,type,help,value)=>`# HELP ${name} ${help}\n# TYPE ${name} ${type}\n${name} ${metricValue(value)}\n`;
+const authorizedMetricsRequest=(request,token)=>{
+  if(typeof token!=='string'||token.length<32)return false;
+  const provided=String(request.headers.authorization||'').replace(/^Bearer\s+/i,'');
+  const expectedBytes=Buffer.from(token),providedBytes=Buffer.from(provided);
+  return expectedBytes.length===providedBytes.length&&timingSafeEqual(expectedBytes,providedBytes);
+};
+
+export function renderDirectMetrics(active,sockets,counters={}){
+ const peers=[...sockets],open=peers.filter(socket=>socket.readyState===WebSocket.OPEN);
+ const buffered=open.reduce((total,socket)=>total+metricValue(socket.bufferedAmount),0);
+ return [
+  metric('masaka_direct_active_sessions','gauge','Browser sessions currently owned by this worker.',active.size),
+  metric('masaka_direct_connections','gauge','All direct data-plane WebSocket connections.',peers.length),
+  metric('masaka_direct_view_connections','gauge','Authorized open preview connections.',open.filter(socket=>socket.masaka?.claims.scope==='view').length),
+  metric('masaka_direct_input_connections','gauge','Authorized open input connections.',open.filter(socket=>socket.masaka?.claims.scope==='input').length),
+  metric('masaka_direct_socket_buffered_bytes','gauge','Bytes waiting in open direct WebSocket send buffers.',buffered),
+  metric('masaka_direct_authorizations_total','counter','Successful direct data-plane authorizations.',counters.authorized),
+  metric('masaka_direct_authorization_failures_total','counter','Rejected direct data-plane authorizations.',counters.authorizationFailures),
+  metric('masaka_direct_input_actions_total','counter','Successfully applied direct input actions.',counters.inputActions),
+  metric('masaka_direct_input_processing_milliseconds_total','counter','Worker processing time for successful direct input actions.',counters.inputProcessingMs),
+  metric('masaka_direct_preview_messages_total','counter','Preview messages sent to viewers.',counters.previewMessages),
+  metric('masaka_direct_preview_backpressure_drops_total','counter','Replaceable preview frames skipped under backpressure.',counters.previewBackpressureDrops),
+  metric('masaka_direct_slow_client_disconnects_total','counter','Preview clients disconnected after exceeding the hard buffer limit.',counters.slowClientDisconnects)
+ ].join('');
+}
 
 const releaseInput=async control=>{try{await control.releaseInput?.();}finally{control.endInput?.();}};
 
@@ -90,9 +119,16 @@ export async function revokeDirectControl(active, worker, claims) {
   return {revoked:true,epoch:control.controlEpoch};
 }
 
-export function createDirectServer({ active, worker, secret, port = 8787, host = '127.0.0.1' }) {
+export function createDirectServer({ active, worker, secret, metricsToken = '', port = 8787, host = '127.0.0.1' }) {
+  const metrics={authorized:0,authorizationFailures:0,inputActions:0,inputProcessingMs:0,previewMessages:0,previewBackpressureDrops:0,slowClientDisconnects:0};
+  const sockets = new Set();
   const http = createServer(async(req,res) => {
     if (req.url === '/health') { res.writeHead(200,{'content-type':'application/json'}); return res.end('{"ok":true}'); }
+    if(req.url==='/metrics'&&req.method==='GET'){
+      if(!authorizedMetricsRequest(req,metricsToken)){res.writeHead(404,{'cache-control':'no-store'});return res.end();}
+      const body=renderDirectMetrics(active,sockets,metrics);
+      res.writeHead(200,{'content-type':'text/plain; version=0.0.4; charset=utf-8','content-length':String(Buffer.byteLength(body)),'cache-control':'no-store'});return res.end(body);
+    }
     if(req.url==='/v1/revoke'&&req.method==='POST'){
       try{
         const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
@@ -104,8 +140,8 @@ export function createDirectServer({ active, worker, secret, port = 8787, host =
     }
     res.writeHead(404);res.end();
   });
-  const sockets = new Set(), wss = new WebSocketServer({ server:http, path:'/v1/session', maxPayload:8_000_000, perMessageDeflate:false });
-  const authorize = async (socket, token) => {
+  const wss = new WebSocketServer({ server:http, path:'/v1/session', maxPayload:8_000_000, perMessageDeflate:false });
+  const authorizeDirect = async (socket, token) => {
     if(socket.masakaClosed)throw Error('Browser connection closed');
     const claims=verifyDirectTicket(token,secret),control=active.get(claims.sid);
     if(!['view','input'].includes(claims.scope))throw Error('Invalid browser capability scope');
@@ -140,6 +176,10 @@ export function createDirectServer({ active, worker, secret, port = 8787, host =
     else if(claims.scope==='view'&&!alreadyConnected&&control.semanticInstalled&&!control.semanticBacklog?.length)queueSemanticControl(control,'dash:dom-stream-start',{trigger:'viewer-connected'});
     control.wake?.();control.wake=null;
     json(socket,{type:'ready',payload:readyPayload(socket.masaka,claims.scope)});
+  };
+  const authorize=async(socket,token)=>{
+    try{const value=await authorizeDirect(socket,token);metrics.authorized+=1;return value;}
+    catch(error){metrics.authorizationFailures+=1;throw error;}
   };
   wss.on('connection',(socket,request)=>{
     sockets.add(socket);socket.isAlive=true;socket.masakaClosed=false;socket.masakaMessages=Promise.resolve();
@@ -183,6 +223,7 @@ export function createDirectServer({ active, worker, secret, port = 8787, host =
         // grace coalesces a pointer/keyboard burst without delaying visible
         // feedback for almost a second after every action.
         finally{state.control.deferInputEnd?.(140);}
+        metrics.inputActions+=1;metrics.inputProcessingMs+=Date.now()-started;
         state.control.actions.push({session_id:state.claims.sid,user_id:state.claims.uid,project_id:state.claims.pid,seq,kind:message.type,event_count:Array.isArray(message.events)?message.events.length:1,latency_ms:Date.now()-started});
         json(socket,{type:'ack',seq,applied_at:Date.now(),processing_ms:Date.now()-started});
       }catch(error){json(socket,{type:'error',seq:Number.isSafeInteger(message?.seq)?message.seq:null,error:String(error.message).slice(0,180)});}
@@ -196,6 +237,7 @@ export function createDirectServer({ active, worker, secret, port = 8787, host =
   const heartbeat=setInterval(()=>{const now=Math.floor(Date.now()/1000);for(const socket of sockets){if(socket.masaka?.claims.exp<now){socket.close(4003,'Capability expired');continue;}if(!socket.isAlive){socket.terminate();continue;}socket.isAlive=false;socket.ping();}},15000);heartbeat.unref();
   http.listen(port,host);
   return {
+    address(){return http.address();},
     broadcast(control,event,payload){
       let sent=false;
       for(const socket of control.clients){
@@ -207,17 +249,17 @@ export function createDirectServer({ active, worker, secret, port = 8787, host =
         // mutations. Disconnect it so reconnect authorization requests a full
         // frame/snapshot instead of leaving a permanently stale mirror.
         if(socket.readyState!==WebSocket.OPEN)continue;
-        if(socket.bufferedAmount>8_000_000){socket.close(1013,'Preview client is too slow');continue;}
+        if(socket.bufferedAmount>8_000_000){metrics.slowClientDisconnects+=1;socket.close(1013,'Preview client is too slow');continue;}
         // Pixels are latest-state data. Skip an obsolete frame when the
         // previous one is still in flight, but keep the viewer connected so
         // the next compositor probe can deliver the newest state. Chunks for
         // an already-started frame remain ordered and are never dropped.
-        if(frameBackpressured(socket,event))continue;
+        if(frameBackpressured(socket,event)){metrics.previewBackpressureDrops+=1;continue;}
         if(payload instanceof ArrayBuffer||ArrayBuffer.isView(payload)||Buffer.isBuffer(payload)){
           const buffer=Buffer.isBuffer(payload)?payload:Buffer.from(payload.buffer||payload,payload.byteOffset||0,payload.byteLength||payload.byteLength);
           if(!json(socket,{type:'binary',event,length:buffer.length})){socket.close(1013,'Preview client is too slow');continue;}
-          socket.send(buffer);sent=true;
-        }else if(json(socket,{type:event,payload}))sent=true;
+          socket.send(buffer);sent=true;metrics.previewMessages+=1;
+        }else if(json(socket,{type:event,payload})){sent=true;metrics.previewMessages+=1;}
         else socket.close(1013,'Preview client is too slow');
       }
       return sent;
