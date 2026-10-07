@@ -1,0 +1,38 @@
+{
+  "capturedAt": "2026-10-07T00:00:00.000Z",
+  "implementations": {
+    "browser-use": {
+      "repository": "https://github.com/browser-use/browser-use",
+      "commit": "914c59bdd4acd50e9628a97a96a3919313aebc85",
+      "version": "0.13.11",
+      "license": "MIT",
+      "benchmark": true,
+      "role": "agent browser library with a managed Chromium session"
+    },
+    "stagehand": {
+      "repository": "https://github.com/browserbase/stagehand",
+      "commit": "fdd179582b6b1f9e43c3d18ad27917cf2e66631e",
+      "version": "4.0.0",
+      "license": "MIT",
+      "benchmark": false,
+      "role": "agent automation SDK",
+      "exclusion": "Stagehand v4 depends on its extension and hosted or LLM-backed action layer, so its task latency is not an equivalent standalone browser-runtime measurement."
+    },
+    "steel-browser": {
+      "repository": "https://github.com/steel-dev/steel-browser",
+      "commit": "1131a0222a27f391bf8f27cca6f278ddf7ace8dd",
+      "version": "0.5.3",
+      "license": "Apache-2.0",
+      "benchmark": true,
+      "role": "self-hosted Chromium browser API"
+    },
+    "browserless": {
+      "repository": "https://github.com/browserless/browserless",
+      "commit": "f7edf0f526e5fefa2db8abca22f47b32ac165c89",
+      "version": "2.57.0",
+      "license": "SSPL-1.0 OR Browserless Commercial License",
+      "benchmark": true,
+      "role": "self-hosted Chromium browser service"
+    }
+  }
+}

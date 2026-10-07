@@ -1,0 +1,268 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-07T09:19:55.262Z",
+  "method": {
+    "task": "offline-fixture-title-dom-script-and-screenshot-verification",
+    "runs": 7,
+    "warmups": 1,
+    "concurrency": 1,
+    "cpuLimit": 2,
+    "memoryLimitMiB": 1024,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "networkTarget": "container-local fixture only",
+    "browserReady": "docker start to verified title and DOM marker",
+    "memory": "Docker working-set snapshot after title, DOM, script, and screenshot verification while the browser remained active",
+    "order": [
+      "jet",
+      "browser-use",
+      "steel-browser",
+      "browserless"
+    ]
+  },
+  "system": {
+    "os": "Linux 7.0.0-28-generic x86_64 GNU/Linux",
+    "architecture": "x64",
+    "cpu": "INTEL(R) XEON(R) GOLD 6538Y+",
+    "cpuLimit": 2,
+    "memoryLimitMiB": 1024,
+    "docker": "29.5.3",
+    "node": "v24.18.0"
+  },
+  "implementations": {
+    "jet": {
+      "commit": "afcb22bf2a1ad75d76da88475d0db1f7ebc9e5c7",
+      "license": "Apache-2.0",
+      "image": "jet-browser:bench-20261007",
+      "imageDigest": "ae9b473c26e39291924b348d8497159ad96989c9481933a1179412ec43d49bb5",
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "browserReadyMs": 1425.34,
+          "scriptVerified": true,
+          "activeMemoryMiB": 187.7
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "browserReadyMs": 1445.25,
+          "scriptVerified": true,
+          "activeMemoryMiB": 190.9
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "browserReadyMs": 1422.15,
+          "scriptVerified": true,
+          "activeMemoryMiB": 189.1
+        },
+        {
+          "run": 4,
+          "status": "passed",
+          "browserReadyMs": 1468.14,
+          "scriptVerified": true,
+          "activeMemoryMiB": 187.6
+        },
+        {
+          "run": 5,
+          "status": "passed",
+          "browserReadyMs": 1430.71,
+          "scriptVerified": true,
+          "activeMemoryMiB": 189.6
+        },
+        {
+          "run": 6,
+          "status": "passed",
+          "browserReadyMs": 1528.38,
+          "scriptVerified": true,
+          "activeMemoryMiB": 190.1
+        },
+        {
+          "run": 7,
+          "status": "passed",
+          "browserReadyMs": 1535.87,
+          "scriptVerified": true,
+          "activeMemoryMiB": 191
+        }
+      ]
+    },
+    "browser-use": {
+      "commit": "914c59bdd4acd50e9628a97a96a3919313aebc85",
+      "license": "MIT",
+      "image": "browser-use:bench-20261007-normalized",
+      "imageDigest": "24ec14760d250b1f2a9b823286447f5e8f82172c3aba51c92b01564eb3db60c1",
+      "baseImage": "browser-use:bench-20261007",
+      "baseImageDigest": "f9bef84d6af15736c952018a4ec572e3597e1e7a62e9a83cc0a2202aae2444dd",
+      "runtimeNormalization": "Use a permission-only overlay that restores normal read/traverse access to the ACL-built /app tree before timed samples. Back the image-declared /data scratch volume with a 64 MiB tmpfs because the benchmark host volume driver cannot set POSIX ACL xattrs. Normalize OCI root traversal inside timed startup, then immediately drop back to the image default browseruse user.",
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "browserReadyMs": 6163.47,
+          "scriptVerified": true,
+          "activeMemoryMiB": 283.8
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "browserReadyMs": 6162.09,
+          "scriptVerified": true,
+          "activeMemoryMiB": 282.4
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "browserReadyMs": 6563.44,
+          "scriptVerified": true,
+          "activeMemoryMiB": 282.8
+        },
+        {
+          "run": 4,
+          "status": "passed",
+          "browserReadyMs": 6335.79,
+          "scriptVerified": true,
+          "activeMemoryMiB": 286.1
+        },
+        {
+          "run": 5,
+          "status": "passed",
+          "browserReadyMs": 6533.74,
+          "scriptVerified": true,
+          "activeMemoryMiB": 283.3
+        },
+        {
+          "run": 6,
+          "status": "passed",
+          "browserReadyMs": 6374.59,
+          "scriptVerified": true,
+          "activeMemoryMiB": 285.6
+        },
+        {
+          "run": 7,
+          "status": "passed",
+          "browserReadyMs": 6946.8,
+          "scriptVerified": true,
+          "activeMemoryMiB": 286
+        }
+      ]
+    },
+    "steel-browser": {
+      "commit": "1131a0222a27f391bf8f27cca6f278ddf7ace8dd",
+      "license": "Apache-2.0",
+      "image": "steel-browser:bench-20261007",
+      "imageDigest": "26be1193d1f200f60f222dc095de97ea6a630268af2aee30cf31575a55895c57",
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8802.16,
+          "activeMemoryMiB": 421.3
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8502.4,
+          "activeMemoryMiB": 424.9
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8440.63,
+          "activeMemoryMiB": 417.3
+        },
+        {
+          "run": 4,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8490.13,
+          "activeMemoryMiB": 422.4
+        },
+        {
+          "run": 5,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8660.87,
+          "activeMemoryMiB": 444.2
+        },
+        {
+          "run": 6,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8451.37,
+          "activeMemoryMiB": 440.6
+        },
+        {
+          "run": 7,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 8408.01,
+          "activeMemoryMiB": 449.4
+        }
+      ]
+    },
+    "browserless": {
+      "commit": "f7edf0f526e5fefa2db8abca22f47b32ac165c89",
+      "license": "SSPL-1.0 OR Browserless Commercial License",
+      "image": "ghcr.io/browserless/chromium:v2.57.0",
+      "imageDigest": "6bac628b3d8293f8fb251d3a6b63030dfc5a1cb0c7e5c39abe5efd8f4b25360b",
+      "runtimeNormalization": "Normalize OCI root traversal, then drop back to the image default blessuser before startup.",
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5654.31,
+          "activeMemoryMiB": 401.1
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5659.54,
+          "activeMemoryMiB": 402.2
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5133.22,
+          "activeMemoryMiB": 403.8
+        },
+        {
+          "run": 4,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5274.68,
+          "activeMemoryMiB": 401.6
+        },
+        {
+          "run": 5,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5245.24,
+          "activeMemoryMiB": 402.3
+        },
+        {
+          "run": 6,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5292.05,
+          "activeMemoryMiB": 404.3
+        },
+        {
+          "run": 7,
+          "status": "passed",
+          "scriptVerified": true,
+          "browserReadyMs": 5366.42,
+          "activeMemoryMiB": 398.6
+        }
+      ]
+    }
+  }
+}

@@ -25,6 +25,23 @@ Jet Browser packages a real WPE WebKit browser and a Rust WebDriver bridge into 
 
 No account, API key, database, or hosted control plane is required.
 
+<p align="center">
+  <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·
+  <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
+  <a href="./docs/benchmarks.md">Method</a> ·
+  <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
+</p>
+
+## Reproducible runtime benchmark
+
+<p align="center">
+  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
+</p>
+
+On the same deeptensor host, Jet Browser reached a verified local page in a median **1,445.25 ms** and used **189.6 MiB** of active container memory. The fastest measured Chromium service, Browserless, reached the page in **5,292.05 ms**; the next-lowest memory result was Browser Use at **283.8 MiB**. All four implementations passed 7/7 measured runs; every run verified the title, a DOM marker, JavaScript execution, and a non-empty screenshot before it counted.
+
+This is a narrow cold-runtime test, not a claim about end-to-end agent quality, stealth, site compatibility, or hosted latency. The images, commits, resource limits, environment normalizations, individual samples, exclusions, and limitations are recorded in the [benchmark method](./docs/benchmarks.md), [source lock](./benchmarks/competitors.lock.json), and [raw report](./benchmarks/results/runtime-2026-10-07.json). Stagehand v4 is covered in the [product comparison](./docs/comparison.md) but excluded from this chart because its extension plus hosted or model-backed action layer is not an equivalent standalone browser runtime.
+
 ## Run the verified standalone flow
 
 Requirements: Docker and Node.js 24+. The smoke test builds the image and runs the container with networking disabled. It creates a browser, opens a local page, types through the native input path, verifies the DOM, captures a screenshot, and closes the session.

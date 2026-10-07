@@ -19,8 +19,18 @@ test('public project presentation is independent from a hosted platform', async 
   ].map(read));
   for (const value of [...readmes, ...publicGuides]) {
     assert.doesNotMatch(value, /behind MASAKA|MASAKA 的|MASAKA の|MASAKA의|MASAKA ist|MASAKA est|MASAKA es|MASAKA é/i);
-    assert.doesNotMatch(value, /\bMASAKA\b|masaka-ai\.vercel\.app|masaka-backend|Vercel|Supabase|Postgres|\bKernel\b/i);
   }
+  const companionLinks = [
+    'https://masaka-ai.vercel.app/jet-browser/',
+    'https://masaka-ai.vercel.app/jet-browser/tech-report/',
+  ];
+  for (const link of companionLinks) assert.match(readmes[0], new RegExp(link.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  const primaryWithoutCompanionLinks = companionLinks.reduce((value, link) => value.replaceAll(link, ''), readmes[0]);
+  const hostedDependency = /masaka-backend|Vercel|Supabase|Postgres|\bKernel\b/i;
+  assert.doesNotMatch(primaryWithoutCompanionLinks, hostedDependency);
+  for (const value of [...readmes.slice(1), ...publicGuides]) assert.doesNotMatch(value, hostedDependency);
+  assert.doesNotMatch(primaryWithoutCompanionLinks, /\bMASAKA\b|masaka-ai\.vercel\.app/i);
+  for (const value of [...readmes.slice(1), ...publicGuides]) assert.doesNotMatch(value, /\bMASAKA\b|masaka-ai\.vercel\.app/i);
   for (const value of readmes) {
     assert.match(value, /^<h1 align="center">Jet Browser<\/h1>/);
     assert.match(value, /<p align="center">\s*<img width="100%" src="\.\/docs\/assets\/jet-browser-banner\.png"/);
