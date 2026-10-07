@@ -4,7 +4,8 @@ use std::net::TcpListener;
 const PAGE: &str = r#"<!doctype html>
 <meta charset="utf-8">
 <title>Jet Browser Ready</title>
-<label>Message <input id="message"></label>
+<style>body{margin:24px;font:16px sans-serif}label{display:block}input{width:280px;height:28px}</style>
+<label>Message <input id="message" autofocus></label>
 <output id="result"></output>
 <script>
 message.addEventListener('input', () => result.value = message.value);

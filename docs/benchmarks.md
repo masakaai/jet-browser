@@ -15,7 +15,7 @@ The October 7, 2026 comparison starts a fresh container for each sample and driv
 | Steel Browser 0.5.3 | `1131a0222a27f391bf8f27cca6f278ddf7ace8dd` | `26be1193d1f2…` | 7/7 | 8,490.13 ms | 424.9 MiB |
 | Browserless 2.57.0 | `f7edf0f526e5fefa2db8abca22f47b32ac165c89` | `6bac628b3d82…` | 7/7 | 5,292.05 ms | 402.2 MiB |
 
-The full digests and every measured value live in [`runtime-2026-10-07.json`](../benchmarks/results/runtime-2026-10-07.json). The source repositories, versions, licenses, inclusion decisions, and immutable commits live in [`competitors.lock.json`](../benchmarks/competitors.lock.json). The chart is generated from that JSON; its [standalone HTML](./assets/runtime-benchmark.html) is checked for external dependencies before publication.
+The full digests and every measured value live in [`runtime-2026-10-07.json`](../benchmarks/results/runtime-2026-10-07.json). The source repositories, versions, licenses, inclusion decisions, and immutable commits live in [`competitors.lock.json`](../benchmarks/competitors.lock.json). The chart is generated from that JSON; its [standalone HTML](./assets/runtime-benchmark.html) is checked for external dependencies before publication. The relative figures are computed from the checked-in p50 values against the next-lowest passing result rather than written into the artwork by hand.
 
 ### Fixed environment
 

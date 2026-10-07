@@ -22,26 +22,26 @@ const niceMaximum = value => {
 };
 
 function panel({ title, unit, values, x, y, width, height }) {
-  const labelWidth = 132;
-  const valueWidth = 68;
-  const plotX = x + labelWidth;
-  const plotWidth = width - labelWidth - valueWidth;
-  const barHeight = 28;
-  const rowGap = 20;
-  const plotTop = y + 72;
+  const padding = 30;
+  const labelWidth = 142;
+  const valueWidth = 92;
+  const plotX = x + padding + labelWidth;
+  const plotWidth = width - padding * 2 - labelWidth - valueWidth;
+  const barHeight = 14;
+  const rowGap = 58;
+  const plotTop = y + 82;
   const maximum = niceMaximum(Math.max(...values.map(item => item.value)) * 1.08);
-  const grid = [0, 0.25, 0.5, 0.75, 1].map((fraction, index) => {
-    const gx = Math.round(plotX + plotWidth * fraction);
-    const label = Math.round(maximum * fraction);
-    return `<line x1="${gx}" y1="${plotTop - 20}" x2="${gx}" y2="${y + height - 44}" stroke="${index ? '#cbc4c0' : '#292523'}" stroke-width="${index ? '0.8' : '1'}"${index ? ' stroke-dasharray="4 4"' : ''}/><text x="${gx}" y="${y + height - 20}" fill="#726a65" font-size="12" font-family="'Space Mono', monospace" text-anchor="middle">${label}</text>`;
-  }).join('');
+  const jet = values.find(item => item.name === 'jet');
+  const alternative = values.filter(item => item.name !== 'jet').sort((left, right) => left.value - right.value)[0];
+  const difference = jet && alternative ? Math.round(Math.abs(1 - jet.value / alternative.value) * 100) : null;
+  const claim = difference === null ? 'p50' : `${jet.value <= alternative.value ? '−' : '+'}${difference}%`;
   const bars = values.map((item, index) => {
-    const rowY = plotTop + index * (barHeight + rowGap);
-    const barWidth = Math.max(4, Math.round((item.value / maximum) * plotWidth));
+    const rowY = plotTop + index * rowGap;
+    const barWidth = Math.max(10, Math.round((item.value / maximum) * plotWidth));
     const focal = item.name === 'jet';
-    return `<text x="${plotX - 16}" y="${rowY + 19}" fill="#292523" font-size="16" font-weight="600" font-family="'DM Sans', Arial, sans-serif" text-anchor="end">${esc(labels[item.name] || item.name)}</text><rect x="${plotX}" y="${rowY}" width="${barWidth}" height="${barHeight}" fill="${focal ? '#eeb28a' : '#ded7d1'}" stroke="${focal ? '#292523' : '#726a65'}" stroke-width="1"/><text x="${x + width - 8}" y="${rowY + 19}" fill="${focal ? '#292523' : '#726a65'}" font-size="13" font-weight="600" font-family="'Space Mono', monospace" text-anchor="end">${esc(item.value)} ${unit}</text>`;
+    return `<text x="${x + padding}" y="${rowY + 12}" fill="${focal ? '#111111' : '#66686d'}" font-size="15" font-weight="${focal ? '700' : '600'}" font-family="Arial, Helvetica, sans-serif">${esc(labels[item.name] || item.name)}</text><rect x="${plotX}" y="${rowY}" width="${plotWidth}" height="${barHeight}" rx="7" fill="#e5e7eb"/><rect x="${plotX}" y="${rowY}" width="${barWidth}" height="${barHeight}" rx="7" fill="${focal ? '#f97316' : '#c9cdd3'}"/><text x="${x + width - padding}" y="${rowY + 12}" fill="${focal ? '#f97316' : '#66686d'}" font-size="13" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="end">${esc(item.value)} ${unit}</text>`;
   }).join('');
-  return `<g><text x="${x}" y="${y + 24}" fill="#292523" font-size="24" font-weight="600" font-family="'DM Sans', Arial, sans-serif">${esc(title)}</text><text x="${x}" y="${y + 48}" fill="#726a65" font-size="12" font-family="'Space Mono', monospace">MEDIAN · LOWER IS BETTER</text>${grid}${bars}</g>`;
+  return `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="#f8f8f9" stroke="#e2e4e8"/><text x="${x + padding}" y="${y + 43}" fill="#111111" font-size="23" font-weight="700" font-family="Arial, Helvetica, sans-serif">${esc(title)}</text><text x="${x + width - padding}" y="${y + 43}" fill="#f97316" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="end">${esc(claim)}</text>${bars}<text x="${x + padding}" y="${y + height - 22}" fill="#777a80" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">p50 · ${esc(values[0]?.passed || 0)}/${esc(values[0]?.requested || 0)} passed</text></g>`;
 }
 
 export function renderBenchmarkSvg(summary) {
@@ -51,24 +51,19 @@ export function renderBenchmarkSvg(summary) {
       throw Error(`${name} cannot be charted without a complete passing sample set`);
     }
   }
-  const ready = entries.map(([name, value]) => ({ name, value: value.browserReadyMs.median }));
-  const memory = entries.map(([name, value]) => ({ name, value: value.activeMemoryMiB.median }));
-  const date = String(summary.capturedAt || '').slice(0, 10);
+  const ready = entries.map(([name, value]) => ({ name, value: value.browserReadyMs.median, passed: value.passed, requested: value.requested }));
+  const memory = entries.map(([name, value]) => ({ name, value: value.activeMemoryMiB.median, passed: value.passed, requested: value.requested }));
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
-  <title id="jet-runtime-benchmark-title">Jet Browser reproducible runtime benchmark</title>
-  <desc id="jet-runtime-benchmark-desc">Horizontal bar charts compare median time to a verified browser page and median active container memory for Jet Browser and pinned self-hosted browser implementations. Lower is better.</desc>
-  <rect width="1200" height="640" fill="#f2f1e9"/>
-  <text x="48" y="56" fill="#726a65" font-size="12" font-family="'Space Mono', monospace" letter-spacing="2">JET BROWSER · RUNTIME REPORT</text>
-  <text x="48" y="104" fill="#292523" font-size="40" font-weight="600" font-family="'DM Sans', Arial, sans-serif">Measured on the same host.</text>
-  <text x="48" y="136" fill="#726a65" font-size="16" font-family="'DM Sans', Arial, sans-serif">Offline fixture · 2 CPU · 1 GiB · ${esc(date)} · Lower is better</text>
-  <line x1="48" y1="160" x2="1152" y2="160" stroke="#292523" stroke-width="1"/>
-  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 184, width: 536, height: 360 })}
-  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 184, width: 536, height: 360 })}
-  <line x1="48" y1="568" x2="1152" y2="568" stroke="#cbc4c0" stroke-width="1"/>
-  <rect x="48" y="592" width="16" height="16" fill="#eeb28a" stroke="#292523"/><text x="76" y="605" fill="#292523" font-size="13" font-family="'DM Sans', Arial, sans-serif">Jet Browser</text>
-  <rect x="216" y="592" width="16" height="16" fill="#ded7d1" stroke="#726a65"/><text x="244" y="605" fill="#726a65" font-size="13" font-family="'DM Sans', Arial, sans-serif">Pinned upstream runtime</text>
-  <text x="1152" y="605" fill="#726a65" font-size="11" font-family="'Space Mono', monospace" text-anchor="end">RAW JSON + METHOD IN /benchmarks</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
+  <title id="jet-runtime-benchmark-title">Jet Browser runtime benchmark</title>
+  <desc id="jet-runtime-benchmark-desc">Median browser-ready time and active memory across complete passing sample sets. Lower is better.</desc>
+  <rect width="1200" height="540" fill="#ffffff"/>
+  <text x="48" y="55" fill="#111111" font-size="34" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser runtime benchmark</text>
+  <text x="48" y="91" fill="#66686d" font-size="16" font-family="Arial, Helvetica, sans-serif">Median of ${esc(summary.method.runs)} runs · same Linux host · lower is better</text>
+  <rect x="48" y="122" width="18" height="12" rx="6" fill="#f97316"/><text x="78" y="133" fill="#333438" font-size="13" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser</text>
+  <rect x="196" y="122" width="18" height="12" rx="6" fill="#c9cdd3"/><text x="226" y="133" fill="#66686d" font-size="13" font-family="Arial, Helvetica, sans-serif">Other runtimes</text>
+  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 158, width: 536, height: 342 })}
+  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 158, width: 536, height: 342 })}
 </svg>`;
 }
 
@@ -81,11 +76,11 @@ export function renderBenchmarkHtml(summary) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Jet Browser runtime benchmark</title>
   <style>
-    :root { color-scheme: light; background:#f2f1e9; }
+    :root { color-scheme: light; background:#f3f4f6; }
     * { box-sizing:border-box; }
-    body { min-height:100vh; display:grid; place-items:center; margin:0; padding:24px; background:#f2f1e9; }
+    body { min-height:100vh; display:grid; place-items:center; margin:0; padding:24px; background:#f3f4f6; }
     main { width:min(1200px,100%); }
-    svg { display:block; width:100%; height:auto; border:1px solid #cbc4c0; }
+    svg { display:block; width:100%; height:auto; border:1px solid #e2e4e8; }
   </style>
 </head>
 <body><main>${svg}</main></body>

@@ -1,12 +1,5 @@
-<h1 align="center">Jet Browser</h1>
-
 <p align="center">
-  <strong>A small, open browser runtime for web agents.</strong><br>
-  WPE WebKit, native input, deterministic automation, and an embeddable JSONL protocol.
-</p>
-
-<p align="center">
-  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser open-source browser runtime">
+  <img width="100%" src="./docs/assets/jet-browser-banner.svg" alt="Jet Browser — a small browser runtime for web agents">
 </p>
 
 <p align="center">
@@ -21,9 +14,9 @@
   <a href="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
-Jet Browser packages a real WPE WebKit browser and a Rust WebDriver bridge into a self-contained runtime for agents. Run one isolated session per container, send ordered JSON commands over standard input, and receive machine-readable results over standard output.
+Jet Browser packages WPE WebKit and a Rust WebDriver bridge as a standalone runtime. One container runs one isolated browser session; your harness sends ordered JSONL commands and receives machine-readable results.
 
-No account, API key, database, or hosted control plane is required.
+Bring any harness or deterministic test runner. No account, API key, model, database, or hosted control plane is required.
 
 <p align="center">
   <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·
@@ -32,19 +25,13 @@ No account, API key, database, or hosted control plane is required.
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
 
-## Reproducible runtime benchmark
+## Quick start
 
-<p align="center">
-  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
-</p>
+Requirements: Docker and Node.js 24+.
 
-On the same deeptensor host, Jet Browser reached a verified local page in a median **1,445.25 ms** and used **189.6 MiB** of active container memory. The fastest measured Chromium service, Browserless, reached the page in **5,292.05 ms**; the next-lowest memory result was Browser Use at **283.8 MiB**. All four implementations passed 7/7 measured runs; every run verified the title, a DOM marker, JavaScript execution, and a non-empty screenshot before it counted.
+### 1. Run the verified standalone flow
 
-This is a narrow cold-runtime test, not a claim about end-to-end agent quality, stealth, site compatibility, or hosted latency. The images, commits, resource limits, environment normalizations, individual samples, exclusions, and limitations are recorded in the [benchmark method](./docs/benchmarks.md), [source lock](./benchmarks/competitors.lock.json), and [raw report](./benchmarks/results/runtime-2026-10-07.json). Stagehand v4 is covered in the [product comparison](./docs/comparison.md) but excluded from this chart because its extension plus hosted or model-backed action layer is not an equivalent standalone browser runtime.
-
-## Run the verified standalone flow
-
-Requirements: Docker and Node.js 24+. The smoke test builds the image and runs the container with networking disabled. It creates a browser, opens a local page, types through the native input path, verifies the DOM, captures a screenshot, and closes the session.
+The smoke test builds the image, disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
@@ -63,15 +50,28 @@ Successful output includes:
 }
 ~~~
 
-To run the container directly without installing JavaScript dependencies:
+### 2. Let your coding agent verify it
+
+Paste this into Codex, Claude Code, or another repository-aware coding agent:
+
+~~~text
+Set up Jet Browser for this repository: https://github.com/masakaai/jet-browser.
+Read README.md and docs/demo.md, then run npm run standalone and report whether it passed.
+~~~
+
+### 3. Embed the runtime boundary
+
+Each input line is one JSON command; each output line is one JSON response. A supervisor in any language can own the container lifecycle and keep the model or harness replaceable.
 
 ~~~bash
 docker build -f Dockerfile.standalone -t jet-browser:local .
 
 printf '%s\n' \
-  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}' \
   '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
-  '{"op":"title"}' \
+  '{"op":"document_state"}' \
+  '{"op":"snapshot"}' \
+  '{"op":"screenshot"}' \
   '{"op":"close"}' |
 docker run --rm -i --network=none --cap-drop=ALL \
   --env=JET_BROWSER_SMOKE=1 \
@@ -82,6 +82,27 @@ docker run --rm -i --network=none --cap-drop=ALL \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
   --pids-limit=256 --shm-size=256m jet-browser:local
 ~~~
+
+For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).
+
+## Why Jet Browser
+
+| Design choice | What it gives an agent system |
+| --- | --- |
+| **A browser runtime, not a bundled agent** | Bring any model, tool loop, orchestration framework, or deterministic test runner. |
+| **One isolated session per container** | Clear lifecycle, resource limits, profile ownership, and failure cleanup. |
+| **Ordered JSONL over stdin/stdout** | A small integration boundary with no required daemon, database, account, or cloud API. |
+| **Native input plus semantic and visual evidence** | Pointer, keyboard, touch, tabs, DOM capture, JavaScript results, and screenshots share one runtime. |
+| **Versioned tool schemas** | Bind Jet to an agent harness without letting model/tool naming changes mutate the execution contract. |
+| **Standalone core, optional distributed layer** | Start locally; add preview, takeover, persistence, regional scheduling, and fleet control only when needed. |
+
+## Reproducible runtime benchmark
+
+On the same host, Jet Browser reached a verified page in **1,445.25 ms** and used **189.6 MiB** of active memory (median of 7 runs). It had **72.7% lower ready time** than the next result and **33.2% lower memory**; every measured runtime passed 7/7 runs. See the [method](./docs/benchmarks.md) and [raw samples](./benchmarks/results/runtime-2026-10-07.json) for the exact environment and limits.
+
+<p align="center">
+  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
+</p>
 
 ## What ships
 
@@ -97,6 +118,20 @@ docker run --rm -i --network=none --cap-drop=ALL \
 | Agent integration | Versioned JSON Schema tool declarations with collision checks |
 
 The standalone image contains only the browser runtime and operating-system libraries it needs. It does not install an application server, JavaScript package tree, database client, tunnel, payment SDK, or vendor agent framework.
+
+## Pick the right layer
+
+These projects solve different parts of browser automation. The table labels the boundary instead of turning unlike products into a feature-score contest.
+
+| Project | Primary layer | Browser/control boundary | Included in this runtime benchmark |
+| --- | --- | --- | :---: |
+| **Jet Browser** | Standalone browser runtime | WPE WebKit + ordered JSONL | ✓ |
+| Browser Use | Agent framework with browser automation | Chromium through its runtime/SDK | ✓ |
+| Steel Browser | Self-hosted browser API | Chromium through HTTP and WebSocket APIs | ✓ |
+| Browserless | Browser execution service | Chromium through CDP/WebSocket | ✓ |
+| Stagehand v4 | Model-backed automation SDK | Extension/CDP action layer | — different boundary |
+
+Read the [deployment and competitor comparison](./docs/comparison.md) for the source links, inclusion rules, and the capabilities Jet deliberately leaves to the embedding harness.
 
 ## Architecture
 
@@ -119,9 +154,10 @@ See [Architecture](./docs/architecture.md) and the [standalone demo](./docs/demo
 Each input line is one JSON command. Each output line is one JSON response.
 
 ~~~json
-{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}
+{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}
 {"op":"navigate","url":"https://example.com"}
-{"op":"title"}
+{"op":"document_state"}
+{"op":"snapshot"}
 {"op":"screenshot"}
 {"op":"close"}
 ~~~

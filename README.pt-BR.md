@@ -1,9 +1,5 @@
-<h1 align="center">Jet Browser</h1>
-
-<p align="center"><strong>Um runtime de navegador pequeno e aberto para agentes web.</strong><br>WPE WebKit, entrada nativa, automação determinística e um protocolo JSONL incorporável.</p>
-
 <p align="center">
-  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Runtime de navegador open source Jet Browser">
+  <img width="100%" src="./docs/assets/jet-browser-banner.svg" alt="Runtime de navegador open source Jet Browser">
 </p>
 
 <p align="center"><a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · Português</p>
@@ -22,17 +18,11 @@ cd jet-browser
 npm run standalone
 ~~~
 
-Somente com Docker:
+## Benchmark reproduzível do runtime
 
-~~~bash
-docker build -f Dockerfile.standalone -t jet-browser:local .
-printf '%s\n' \
-  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
-  '{"op":"navigate","url":"data:text/html,<title>Jet Browser</title><h1>ready</h1>"}' \
-  '{"op":"title"}' \
-  '{"op":"close"}' |
-docker run --rm -i --network=none jet-browser:local
-~~~
+![Medianas do tempo verificado até o navegador estar pronto e da memória ativa para Jet Browser, Browser Use, Steel Browser e Browserless; menor é melhor.](./docs/assets/runtime-benchmark.svg)
+
+No mesmo host, o Jet Browser chegou a uma página verificada em uma mediana de **1.445,25 ms** e usou **189,6 MiB** de memória ativa. Todos os runtimes comparados passaram em 7/7 execuções. O gráfico é gerado a partir dos [dados brutos](./benchmarks/results/runtime-2026-10-07.json); o método e as limitações estão na [documentação do benchmark](./docs/benchmarks.md).
 
 ## Núcleo open source
 

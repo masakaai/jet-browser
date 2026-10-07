@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2172 724" role="img" aria-labelledby="jet-banner-title jet-banner-desc">
+  <title id="jet-banner-title">Jet Browser</title>
+  <desc id="jet-banner-desc">Jet Browser logo and the tagline: A small browser runtime for web agents.</desc>
+  <rect width="2172" height="724" fill="#f3f4f6"/>
+  <rect x="382" y="172" width="380" height="380" rx="88" fill="#ffffff" stroke="#e2e4e8" stroke-width="4"/>
+  <rect x="448" y="249" width="248" height="190" rx="28" fill="#19191b"/>
+  <circle cx="481" cy="281" r="9" fill="#f97316"/>
+  <circle cx="510" cy="281" r="9" fill="#ffffff" opacity="0.46"/>
+  <circle cx="539" cy="281" r="9" fill="#ffffff" opacity="0.25"/>
+  <path d="M489 360h113" fill="none" stroke="#f97316" stroke-width="22" stroke-linecap="round"/>
+  <path d="m579 326 45 34-45 34" fill="none" stroke="#f97316" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M476 472h181" fill="none" stroke="#19191b" stroke-width="16" stroke-linecap="round"/>
+  <text x="886" y="335" fill="#111111" font-size="112" font-weight="750" font-family="Arial, Helvetica, sans-serif" letter-spacing="-4">Jet Browser</text>
+  <text x="894" y="426" fill="#4b4d52" font-size="43" font-family="Arial, Helvetica, sans-serif">A small browser runtime for web agents.</text>
+</svg>

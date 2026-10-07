@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { waitForFixtureDocument } from './standalone-readiness.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const image = process.env.JET_BROWSER_IMAGE || 'jet-browser:local';
@@ -24,17 +25,6 @@ if (!noBuild) {
   ], { cwd: root });
 }
 
-const commands = [
-  { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'eager' },
-  { op: 'navigate', url: 'http://127.0.0.1:8080/' },
-  { op: 'title' },
-  { op: 'evaluate', expression: "(()=>{document.querySelector('#message').focus();return true})()" },
-  { op: 'input', events: [{ type: 'text', text: 'open-source runtime' }] },
-  { op: 'evaluate', expression: "(()=>({value:document.querySelector('#message').value,result:document.querySelector('#result').value}))()" },
-  { op: 'screenshot' },
-  { op: 'close' }
-];
-
 const child = spawn(docker, [
   'run', '--rm', '-i', '--network=none', '--cap-drop=ALL',
   '--cap-add=SETUID', '--cap-add=SETGID',
@@ -44,10 +34,12 @@ const child = spawn(docker, [
   '--pids-limit=256', '--shm-size=256m', '--env=JET_BROWSER_SMOKE=1', image
 ], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
 
-const stdout = [];
 let stdoutBytes = 0;
+let stdoutBuffer = '';
 let stderr = '';
 let outputError = null;
+let lastCompletedOp = 'none';
+const responseWaiters = [];
 child.stdout.on('data', chunk => {
   stdoutBytes += chunk.length;
   if (stdoutBytes > 24 * 1024 * 1024) {
@@ -55,7 +47,29 @@ child.stdout.on('data', chunk => {
     child.kill('SIGKILL');
     return;
   }
-  stdout.push(chunk);
+  stdoutBuffer += chunk.toString('utf8');
+  for (;;) {
+    const newline = stdoutBuffer.indexOf('\n');
+    if (newline < 0) break;
+    const line = stdoutBuffer.slice(0, newline);
+    stdoutBuffer = stdoutBuffer.slice(newline + 1);
+    if (!line) continue;
+    const waiter = responseWaiters.shift();
+    if (!waiter) {
+      outputError = Error('Standalone browser returned an unexpected response');
+      child.kill('SIGKILL');
+      return;
+    }
+    let response;
+    try {
+      response = JSON.parse(line);
+    } catch (error) {
+      waiter.reject(Error(`${waiter.op}: invalid JSON response: ${error.message}`));
+      continue;
+    }
+    if (!response.ok) waiter.reject(Error(`${waiter.op}: ${response.error || 'Browser command failed'}`));
+    else waiter.resolve(response.value);
+  }
 });
 child.stderr.on('data', chunk => {
   stderr = (stderr + chunk).slice(-4000);
@@ -72,6 +86,10 @@ const completion = new Promise((resolvePromise, reject) => {
   });
   child.once('close', code => {
     clearTimeout(timer);
+    while (responseWaiters.length) {
+      const waiter = responseWaiters.shift();
+      waiter.reject(Error(`${waiter.op}: standalone browser exited before responding (${code}); last completed operation: ${lastCompletedOp}`));
+    }
     if (outputError) return reject(outputError);
     if (code !== 0) {
       return reject(Error('Standalone browser exited (' + code + ')' + (stderr ? ': ' + stderr.trim() : '')));
@@ -80,36 +98,60 @@ const completion = new Promise((resolvePromise, reject) => {
   });
 });
 
-child.stdin.end(commands.map(command => JSON.stringify(command)).join('\n') + '\n');
-await completion;
-
-const lines = Buffer.concat(stdout).toString('utf8').trim().split('\n').filter(Boolean);
-if (lines.length !== commands.length) {
-  throw Error('Expected ' + commands.length + ' browser responses, received ' + lines.length);
-}
-const responses = lines.map((line, index) => {
-  let response;
-  try {
-    response = JSON.parse(line);
-  } catch (error) {
-    throw Error(commands[index].op + ': invalid JSON response: ' + error.message);
-  }
-  if (!response.ok) {
-    throw Error(commands[index].op + ': ' + (response.error || 'Browser command failed') +
-      (stderr ? ': ' + stderr.trim() : ''));
-  }
-  return response.value;
+const target = 'http://127.0.0.1:8080/';
+const send = command => new Promise((resolvePromise, reject) => {
+  const op = command.op;
+  const timer = setTimeout(() => {
+    const index = responseWaiters.indexOf(waiter);
+    if (index >= 0) responseWaiters.splice(index, 1);
+    reject(Error(`${op}: browser response timed out`));
+  }, 20_000);
+  const waiter = {
+    op,
+    resolve: value => { clearTimeout(timer); lastCompletedOp = op; resolvePromise(value); },
+    reject: error => { clearTimeout(timer); reject(error); },
+  };
+  responseWaiters.push(waiter);
+  child.stdin.write(JSON.stringify(command) + '\n', error => {
+    if (!error) return;
+    const index = responseWaiters.indexOf(waiter);
+    if (index >= 0) responseWaiters.splice(index, 1);
+    waiter.reject(error);
+  });
 });
 
-const title = responses[2];
-if (title !== 'Jet Browser Ready') throw Error('Unexpected title: ' + title);
-const evaluation = responses[5];
-const value = evaluation?.result?.value ?? evaluation?.value ?? evaluation;
-if (value?.value !== 'open-source runtime' || value?.result !== 'open-source runtime') {
-  throw Error('Native text input did not update the page');
+let title;
+let value;
+let screenshotBytes;
+try {
+  await send({ op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' });
+  await send({ op: 'navigate', url: target });
+  await waitForFixtureDocument(send, target);
+  const snapshot = await send({ op: 'snapshot' });
+  title = snapshot?.title;
+  if (title !== 'Jet Browser Ready' || snapshot?.url !== target) throw Error('Unexpected page snapshot');
+  await send({ op: 'input', events: [
+    { type: 'pointer', phase: 'down', x: 180, y: 42, button: 0 },
+    { type: 'pointer', phase: 'up', x: 180, y: 42, button: 0 },
+    { type: 'text', text: 'open-source runtime' }
+  ] });
+  const evaluation = await send({ op: 'evaluate', expression: "(()=>({value:document.querySelector('#message').value,result:document.querySelector('#result').value}))()" });
+  value = evaluation?.result?.value ?? evaluation?.value ?? evaluation;
+  if (value?.value !== 'open-source runtime' || value?.result !== 'open-source runtime') {
+    throw Error('Native text input did not update the page');
+  }
+  const screenshot = await send({ op: 'screenshot' });
+  screenshotBytes = Buffer.from(screenshot, 'base64').length;
+  if (screenshotBytes < 1000) throw Error('Browser screenshot was unexpectedly small');
+  await send({ op: 'close' });
+  child.stdin.end();
+  await completion;
+} catch (error) {
+  child.stdin.destroy();
+  child.kill('SIGKILL');
+  await completion.catch(() => {});
+  throw Error(error.message + (stderr ? ': ' + stderr.trim() : ''));
 }
-const screenshotBytes = Buffer.from(responses[6], 'base64').length;
-if (screenshotBytes < 1000) throw Error('Browser screenshot was unexpectedly small');
 
 console.log(JSON.stringify({
   status: 'passed',
