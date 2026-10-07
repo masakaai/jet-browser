@@ -22,17 +22,11 @@ cd jet-browser
 npm run standalone
 ~~~
 
-Docker만 사용할 수도 있습니다.
+## 재현 가능한 런타임 벤치마크
 
-~~~bash
-docker build -f Dockerfile.standalone -t jet-browser:local .
-printf '%s\n' \
-  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
-  '{"op":"navigate","url":"data:text/html,<title>Jet Browser</title><h1>ready</h1>"}' \
-  '{"op":"title"}' \
-  '{"op":"close"}' |
-docker run --rm -i --network=none jet-browser:local
-~~~
+![Jet Browser, Browser Use, Steel Browser, Browserless의 검증된 브라우저 준비 시간과 활성 메모리 중앙값. 두 지표 모두 낮을수록 좋습니다.](./docs/assets/runtime-benchmark.svg)
+
+동일한 호스트에서 Jet Browser는 검증된 페이지에 중앙값 **1,445.25 ms**로 도달했고 활성 메모리는 **189.6 MiB**였습니다. 모든 비교 런타임이 7/7회 통과했습니다. 차트는 [원시 데이터](./benchmarks/results/runtime-2026-10-07.json)에서 생성되며 방법과 한계는 [벤치마크 문서](./docs/benchmarks.md)에 기록되어 있습니다.
 
 ## 오픈 소스 코어
 

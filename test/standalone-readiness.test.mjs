@@ -34,10 +34,14 @@ test('public project presentation is independent from a hosted platform', async 
   for (const value of readmes) {
     assert.match(value, /^<h1 align="center">Jet Browser<\/h1>/);
     assert.match(value, /<p align="center">\s*<img width="100%" src="\.\/docs\/assets\/jet-browser-banner\.png"/);
+    assert.match(value, /docs\/assets\/runtime-benchmark\.svg/);
+    assert.match(value, /benchmarks\/results\/runtime-2026-10-07\.json/);
+    assert.match(value, /7\/7/);
+    assert.match(value, /npm run standalone/);
   }
   assert.match(readmes[0], /docs\/assets\/jet-browser-banner\.png/);
   assert.match(readmes[0], /Dockerfile\.standalone/);
-  assert.match(readmes[0], /No account, API key, database, or hosted control plane is required/);
+  assert.match(readmes[0], /No account, API key, database, model, or hosted control plane is required/);
 });
 
 test('standalone image has no hosted control-plane dependency', async () => {

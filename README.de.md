@@ -22,17 +22,11 @@ cd jet-browser
 npm run standalone
 ~~~
 
-Nur mit Docker:
+## Reproduzierbarer Laufzeit-Benchmark
 
-~~~bash
-docker build -f Dockerfile.standalone -t jet-browser:local .
-printf '%s\n' \
-  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
-  '{"op":"navigate","url":"data:text/html,<title>Jet Browser</title><h1>ready</h1>"}' \
-  '{"op":"title"}' \
-  '{"op":"close"}' |
-docker run --rm -i --network=none jet-browser:local
-~~~
+![Median der verifizierten Browser-Bereitschaft und des aktiven Speichers für Jet Browser, Browser Use, Steel Browser und Browserless; niedriger ist besser.](./docs/assets/runtime-benchmark.svg)
+
+Auf demselben Host erreichte Jet Browser eine verifizierte Seite im Median nach **1.445,25 ms** und belegte **189,6 MiB** aktiven Speicher. Alle verglichenen Laufzeiten bestanden 7/7 Durchläufe. Das Diagramm wird aus den [Rohdaten](./benchmarks/results/runtime-2026-10-07.json) erzeugt; Methode und Grenzen stehen in der [Benchmark-Dokumentation](./docs/benchmarks.md).
 
 ## Open-Source-Kern
 
