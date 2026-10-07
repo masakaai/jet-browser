@@ -69,6 +69,10 @@ test('README chart is accessible, branded, and generated from measured data', ()
   assert.match(svg, /#eeb28a/i);
   assert.match(svg, />110 ms</);
   assert.match(svg, />105 MiB</);
+  assert.match(svg, />65% lower</);
+  assert.match(svg, />74% lower</);
+  assert.match(svg, /vs Browserless/);
+  assert.match(svg, /3\/3 PASSED/);
   assert.doesNotMatch(svg, /JetBrains Mono/i);
   const html = renderBenchmarkHtml(summarizeRuntimeReport(fixture));
   assert.match(html, /^<!doctype html>/);
@@ -102,6 +106,12 @@ test('published report has seven verified samples and Jet leads both scoped metr
   }
   assert.equal(jet.browserReadyMs.median, 1445.25);
   assert.equal(jet.activeMemoryMiB.median, 189.6);
+  const svg = renderBenchmarkSvg(summary);
+  assert.match(svg, />73% lower</);
+  assert.match(svg, /vs Browserless/);
+  assert.match(svg, />33% lower</);
+  assert.match(svg, /vs Browser Use/);
+  assert.match(svg, /7\/7 PASSED/);
 });
 
 test('competitor manifest pins source commits and states benchmark inclusion', () => {
