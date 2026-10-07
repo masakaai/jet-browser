@@ -40,10 +40,8 @@ npm run standalone
 把下面这段文字交给 Codex、Claude Code 或其他能够读取仓库的编码 Agent：
 
 ~~~text
-请从 https://github.com/masakaai/jet-browser 配置 Jet Browser。
-阅读 README.zh-CN.md 与 docs/demo.md。在连接任何公共网站前，先运行
-npm ci 和 npm run standalone。最后报告镜像 digest，以及经过验证的页面标题、
-原生输入值、DOM 结果和截图字节数。
+为当前仓库配置 Jet Browser：https://github.com/masakaai/jet-browser。
+阅读 README.zh-CN.md 与 docs/demo.md，然后运行 npm run standalone 并报告是否通过。
 ~~~
 
 ### 3. 接入运行时边界
@@ -65,22 +63,11 @@ npm ci 和 npm run standalone。最后报告镜像 digest，以及经过验证�
 
 ## 可复现运行时 Benchmark
 
+在同一台主机上，Jet Browser 到达已验证页面的中位时间为 **1,445.25 ms**，活动内存为 **189.6 MiB**。相对各列第二名，就绪时间低 **72.7%**，内存低 **33.2%**；所有参测运行时都通过了 7/7 次运行。精确环境、边界与限制见[测试方法](./docs/benchmarks.md)和[原始样本](./benchmarks/results/runtime-2026-10-07.json)。
+
 <p align="center">
   <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Jet Browser、Browser Use、Steel Browser 与 Browserless 的页面就绪时间和活动内存中位数对比；两个指标都是越低越好。">
 </p>
-
-在同一台 deeptensor 主机上，Jet Browser 到达已验证本地页面的中位时间为 **1,445.25 ms**，活动容器内存中位数为 **189.6 MiB**。相对第二名，它的页面就绪时间低 **72.7%**，活动内存低 **33.2%**。
-
-| 实现 | 通过 | 页面就绪 p50 | 活动内存 p50 |
-| --- | ---: | ---: | ---: |
-| **Jet Browser** | **7/7** | **1,445.25 ms** | **189.6 MiB** |
-| Browser Use 0.13.11 | 7/7 | 6,374.59 ms | 283.8 MiB |
-| Steel Browser 0.5.3 | 7/7 | 8,490.13 ms | 424.9 MiB |
-| Browserless 2.57.0 | 7/7 | 5,292.05 ms | 402.2 MiB |
-
-每次计入结果的运行都验证了标题、DOM marker、JavaScript 执行和非空 PNG。图表由仓库中的原始报告自动生成，不是手工编辑的图片。
-
-这是范围明确的冷启动运行时测试，不代表端到端 Agent 质量、反爬能力、网站兼容性或托管网络延迟。镜像、commit、资源限制、逐样本结果、排除项与限制均记录在[测试方法](./docs/benchmarks.md)、[来源锁定文件](./benchmarks/competitors.lock.json)和[原始报告](./benchmarks/results/runtime-2026-10-07.json)中。
 
 ## 开源实现
 

@@ -55,10 +55,8 @@ Successful output includes:
 Paste this into Codex, Claude Code, or another repository-aware coding agent:
 
 ~~~text
-Set up Jet Browser from https://github.com/masakaai/jet-browser.
-Read README.md and docs/demo.md. Run npm ci and npm run standalone before
-connecting it to any public site. Report the built image digest and the
-verified title, native-input value, DOM result, and screenshot byte count.
+Set up Jet Browser for this repository: https://github.com/masakaai/jet-browser.
+Read README.md and docs/demo.md, then run npm run standalone and report whether it passed.
 ~~~
 
 ### 3. Embed the runtime boundary
@@ -100,22 +98,11 @@ For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sd
 
 ## Reproducible runtime benchmark
 
+On the same host, Jet Browser reached a verified page in **1,445.25 ms** and used **189.6 MiB** of active memory (median of 7 runs). It had **72.7% lower ready time** than the next result and **33.2% lower memory**; every measured runtime passed 7/7 runs. See the [method](./docs/benchmarks.md) and [raw samples](./benchmarks/results/runtime-2026-10-07.json) for the exact environment and limits.
+
 <p align="center">
   <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
 </p>
-
-On the same deeptensor host, Jet Browser reached a verified local page in a median **1,445.25 ms** and used **189.6 MiB** of active container memory. That is **72.7% lower ready time** than the next-fastest measured runtime (Browserless) and **33.2% lower active memory** than the next-lowest result (Browser Use).
-
-| Implementation | Passed | Browser ready p50 | Active memory p50 |
-| --- | ---: | ---: | ---: |
-| **Jet Browser** | **7/7** | **1,445.25 ms** | **189.6 MiB** |
-| Browser Use 0.13.11 | 7/7 | 6,374.59 ms | 283.8 MiB |
-| Steel Browser 0.5.3 | 7/7 | 8,490.13 ms | 424.9 MiB |
-| Browserless 2.57.0 | 7/7 | 5,292.05 ms | 402.2 MiB |
-
-Every counted run verified the expected title, a DOM marker, JavaScript execution, and a non-empty PNG. The chart is generated from the checked-in raw report; it is not a hand-edited image.
-
-This is a narrow cold-runtime test, not a claim about end-to-end agent quality, stealth, site compatibility, or hosted latency. The images, commits, resource limits, environment normalizations, individual samples, exclusions, and limitations are recorded in the [benchmark method](./docs/benchmarks.md), [source lock](./benchmarks/competitors.lock.json), and [raw report](./benchmarks/results/runtime-2026-10-07.json). Stagehand v4 is covered in the [product comparison](./docs/comparison.md) but excluded from this chart because its extension plus hosted or model-backed action layer is not an equivalent standalone browser runtime.
 
 ## What ships
 
