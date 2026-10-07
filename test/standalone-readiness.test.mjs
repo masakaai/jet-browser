@@ -59,7 +59,7 @@ test('standalone image has no hosted control-plane dependency', async () => {
   assert.match(smoke, /apparmor=unconfined/);
   assert.match(smoke, /seccomp=/);
   assert.match(smoke, /"op":"create"|op: 'create'/);
-  assert.match(smoke, /op: 'begin_navigation'/);
+  assert.match(smoke, /op: 'navigate'/);
   assert.match(smoke, /op: 'document_state'/);
   assert.match(smoke, /page_load_strategy: 'none'/);
   assert.match(smoke, /type: 'pointer'/);

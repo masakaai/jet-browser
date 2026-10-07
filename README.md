@@ -77,7 +77,7 @@ docker build -f Dockerfile.standalone -t jet-browser:local .
 
 printf '%s\n' \
   '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}' \
-  '{"op":"begin_navigation","url":"http://127.0.0.1:8080/"}' \
+  '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
   '{"op":"document_state"}' \
   '{"op":"snapshot"}' \
   '{"op":"screenshot"}' \
@@ -175,7 +175,7 @@ Each input line is one JSON command. Each output line is one JSON response.
 
 ~~~json
 {"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}
-{"op":"begin_navigation","url":"https://example.com"}
+{"op":"navigate","url":"https://example.com"}
 {"op":"document_state"}
 {"op":"snapshot"}
 {"op":"screenshot"}

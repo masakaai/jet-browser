@@ -27,7 +27,7 @@ if (!noBuild) {
 const readinessProbes = 12;
 const commands = [
   { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' },
-  { op: 'begin_navigation', url: 'http://127.0.0.1:8080/' },
+  { op: 'navigate', url: 'http://127.0.0.1:8080/' },
   ...Array.from({ length: readinessProbes }, () => ({ op: 'document_state' })),
   { op: 'snapshot' },
   { op: 'input', events: [
