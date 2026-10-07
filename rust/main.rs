@@ -2,7 +2,30 @@ use jet_browser::{Input, Wpe};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::io::{self, BufRead, Read, Write};
+use std::thread;
+use std::time::Duration;
 const MAX_COMMAND_BYTES: u64 = 48 * 1024 * 1024;
+
+fn read_command_line<R: BufRead>(reader: &mut R, line: &mut String) -> io::Result<usize> {
+    loop {
+        let remaining = (MAX_COMMAND_BYTES + 1).saturating_sub(line.len() as u64);
+        if remaining == 0 {
+            return Ok(line.len());
+        }
+        match reader.take(remaining).read_line(line) {
+            Ok(_) => return Ok(line.len()),
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::Interrupted | io::ErrorKind::WouldBlock
+                ) =>
+            {
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(error),
+        }
+    }
+}
 #[derive(Deserialize)]
 #[serde(tag = "op", rename_all = "snake_case", deny_unknown_fields)]
 enum Command {
@@ -72,10 +95,7 @@ fn main() {
     let mut stdout = io::stdout().lock();
     loop {
         let mut line = String::new();
-        match (&mut stdin)
-            .take(MAX_COMMAND_BYTES + 1)
-            .read_line(&mut line)
-        {
+        match read_command_line(&mut stdin, &mut line) {
             Ok(0) | Err(_) => break,
             _ => (),
         }
@@ -143,4 +163,47 @@ fn main() {
         }
     }
     // EOF/disconnect closes the WPE session and releases held inputs through Drop.
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::{BufReader, Cursor};
+
+    struct WouldBlockOnce {
+        blocked: bool,
+        input: Cursor<&'static [u8]>,
+    }
+
+    impl Read for WouldBlockOnce {
+        fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+            if !self.blocked {
+                self.blocked = true;
+                return Err(io::Error::from(io::ErrorKind::WouldBlock));
+            }
+            self.input.read(buffer)
+        }
+    }
+
+    #[test]
+    fn command_input_retries_a_temporarily_empty_nonblocking_stream() {
+        let source = WouldBlockOnce {
+            blocked: false,
+            input: Cursor::new(b"{\"op\":\"close\"}\n"),
+        };
+        let mut reader = BufReader::new(source);
+        let mut line = String::new();
+        assert_eq!(
+            read_command_line(&mut reader, &mut line).unwrap(),
+            line.len()
+        );
+        assert_eq!(line, "{\"op\":\"close\"}\n");
+    }
+
+    #[test]
+    fn command_input_still_reports_a_real_eof() {
+        let mut reader = BufReader::new(Cursor::new(Vec::<u8>::new()));
+        let mut line = String::new();
+        assert_eq!(read_command_line(&mut reader, &mut line).unwrap(), 0);
+    }
 }

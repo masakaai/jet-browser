@@ -38,6 +38,7 @@ let stdoutBytes = 0;
 let stdoutBuffer = '';
 let stderr = '';
 let outputError = null;
+let lastCompletedOp = 'none';
 const responseWaiters = [];
 child.stdout.on('data', chunk => {
   stdoutBytes += chunk.length;
@@ -86,7 +87,8 @@ const completion = new Promise((resolvePromise, reject) => {
   child.once('close', code => {
     clearTimeout(timer);
     while (responseWaiters.length) {
-      responseWaiters.shift().reject(Error(`Standalone browser exited before responding (${code})`));
+      const waiter = responseWaiters.shift();
+      waiter.reject(Error(`${waiter.op}: standalone browser exited before responding (${code}); last completed operation: ${lastCompletedOp}`));
     }
     if (outputError) return reject(outputError);
     if (code !== 0) {
@@ -106,7 +108,7 @@ const send = command => new Promise((resolvePromise, reject) => {
   }, 20_000);
   const waiter = {
     op,
-    resolve: value => { clearTimeout(timer); resolvePromise(value); },
+    resolve: value => { clearTimeout(timer); lastCompletedOp = op; resolvePromise(value); },
     reject: error => { clearTimeout(timer); reject(error); },
   };
   responseWaiters.push(waiter);
