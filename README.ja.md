@@ -22,7 +22,7 @@ npm run standalone
 
 ![Jet Browser、Browser Use、Steel Browser、Browserless の検証済みブラウザー起動時間とアクティブメモリの中央値。どちらも低いほど良い。](./docs/assets/runtime-benchmark.svg)
 
-同じホスト上で Jet Browser は検証済みページへ中央値 **1,445.25 ms** で到達し、アクティブメモリは **189.6 MiB** でした。比較対象はすべて 7/7 回成功しました。グラフは[生データ](./benchmarks/results/runtime-2026-10-07.json)から生成され、手法と制約は[ベンチマーク文書](./docs/benchmarks.md)に記載されています。
+Jet Browser は **1,445.25 ms** で検証済みページに到達し、アクティブメモリは **189.6 MiB**—次点より準備時間を **72.7%**、メモリを **33.2%** 削減しました。[手法](./docs/benchmarks.md) · [生データ](./benchmarks/results/runtime-2026-10-07.json)
 
 ## オープンソースのコア
 

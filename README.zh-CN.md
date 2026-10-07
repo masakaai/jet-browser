@@ -63,7 +63,7 @@ npm run standalone
 
 ## 可复现运行时 Benchmark
 
-在同一台主机上，Jet Browser 到达已验证页面的中位时间为 **1,445.25 ms**，活动内存为 **189.6 MiB**。相对各列第二名，就绪时间低 **72.7%**，内存低 **33.2%**；所有参测运行时都通过了 7/7 次运行。精确环境、边界与限制见[测试方法](./docs/benchmarks.md)和[原始样本](./benchmarks/results/runtime-2026-10-07.json)。
+Jet Browser 在 **1,445.25 ms** 内到达已验证页面，活动内存为 **189.6 MiB**——相较次优结果，就绪时间低 **72.7%**，内存低 **33.2%**。[测试方法](./docs/benchmarks.md) · [原始数据](./benchmarks/results/runtime-2026-10-07.json)
 
 <p align="center">
   <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Jet Browser、Browser Use、Steel Browser 与 Browserless 的页面就绪时间和活动内存中位数对比；两个指标都是越低越好。">

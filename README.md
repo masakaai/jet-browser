@@ -98,7 +98,7 @@ For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sd
 
 ## Reproducible runtime benchmark
 
-On the same host, Jet Browser reached a verified page in **1,445.25 ms** and used **189.6 MiB** of active memory (median of 7 runs). It had **72.7% lower ready time** than the next result and **33.2% lower memory**; every measured runtime passed 7/7 runs. See the [method](./docs/benchmarks.md) and [raw samples](./benchmarks/results/runtime-2026-10-07.json) for the exact environment and limits.
+Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of active memory—**72.7% lower ready time** and **33.2% lower memory** than the next result. [Method](./docs/benchmarks.md) · [Raw data](./benchmarks/results/runtime-2026-10-07.json)
 
 <p align="center">
   <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">

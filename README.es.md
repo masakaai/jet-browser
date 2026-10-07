@@ -22,7 +22,7 @@ npm run standalone
 
 ![Medianas del tiempo verificado hasta navegador listo y de la memoria activa para Jet Browser, Browser Use, Steel Browser y Browserless; menor es mejor.](./docs/assets/runtime-benchmark.svg)
 
-En el mismo host, Jet Browser alcanzó una página verificada en una mediana de **1.445,25 ms** y utilizó **189,6 MiB** de memoria activa. Todos los runtimes comparados aprobaron 7/7 ejecuciones. El gráfico se genera desde los [datos sin procesar](./benchmarks/results/runtime-2026-10-07.json); el método y sus límites están en la [documentación del benchmark](./docs/benchmarks.md).
+Jet Browser alcanzó una página verificada en **1.445,25 ms** con **189,6 MiB** de memoria activa: **72,7 % menos tiempo de preparación** y **33,2 % menos memoria** que el siguiente resultado. [Método](./docs/benchmarks.md) · [Datos](./benchmarks/results/runtime-2026-10-07.json)
 
 ## Núcleo open source
 
