@@ -44,12 +44,13 @@ test('public project presentation is independent from a hosted platform', async 
 });
 
 test('standalone image has no hosted control-plane dependency', async () => {
-  for (const path of ['Dockerfile.standalone', 'standalone-entrypoint.sh', 'scripts/standalone-smoke.mjs', 'scripts/standalone-fixture.rs', 'seccomp_profile.json', 'LICENSE']) {
+  for (const path of ['Dockerfile.standalone', 'standalone-entrypoint.sh', 'scripts/standalone-smoke.mjs', 'scripts/standalone-readiness.mjs', 'scripts/standalone-fixture.rs', 'seccomp_profile.json', 'LICENSE']) {
     await access(resolve(root, path));
   }
   const dockerfile = await read('Dockerfile.standalone');
   const entrypoint = await read('standalone-entrypoint.sh');
   const smoke = await read('scripts/standalone-smoke.mjs');
+  const readiness = await read('scripts/standalone-readiness.mjs');
   assert.doesNotMatch(dockerfile, /npm ci|@supabase|cloudflared|MASAKA_/i);
   assert.doesNotMatch(entrypoint, /SUPABASE|DATABASE|API_KEY|cloudflared/i);
   assert.match(entrypoint, /jet-wpe/);
@@ -59,7 +60,8 @@ test('standalone image has no hosted control-plane dependency', async () => {
   assert.match(smoke, /seccomp=/);
   assert.match(smoke, /"op":"create"|op: 'create'/);
   assert.match(smoke, /op: 'navigate'/);
-  assert.match(smoke, /op: 'document_state'/);
+  assert.match(smoke, /waitForFixtureDocument/);
+  assert.match(readiness, /op: 'document_state'/);
   assert.match(smoke, /page_load_strategy: 'none'/);
   assert.match(smoke, /type: 'pointer'/);
   assert.match(smoke, /type: 'text'/);
