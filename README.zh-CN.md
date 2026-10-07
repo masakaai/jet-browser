@@ -1,16 +1,12 @@
-<h1 align="center">Jet Browser</h1>
-
-<p align="center"><strong>面向 Web Agent 的小型开源浏览器运行时。</strong><br>WPE WebKit、原生输入、确定性自动化与可嵌入的 JSONL 协议。</p>
-
 <p align="center">
-  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser 开源浏览器运行时">
+  <img width="100%" src="./docs/assets/jet-browser-banner.svg" alt="Jet Browser——面向 Web Agent 的小型浏览器运行时">
 </p>
 
 <p align="center"><a href="./README.md">English</a> · 简体中文 · <a href="./README.ja.md">日本語</a> · <a href="./README.ko.md">한국어</a> · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a></p>
 
-Jet Browser 是给 Agent 使用的真实浏览器运行时，不是绑定某个模型的 Agent 框架。它把 WPE WebKit 与 Rust WebDriver bridge 封装进一个隔离容器，以有序 JSONL 作为边界：你的 harness 负责决策，Jet 执行浏览器动作并返回机器可读证据。
+Jet Browser 把 WPE WebKit 与 Rust WebDriver bridge 封装成独立运行时。每个容器运行一个隔离浏览器会话；Harness 发送有序 JSONL 命令，Jet 返回机器可读结果。
 
-无需账号、API Key、数据库、模型或托管控制面。可以在本机、CI 或自己的调度系统中运行，不必接入特定厂商的 Agent Loop。
+可以接入任意 Harness 或确定性测试程序，无需账号、API Key、模型、数据库或托管控制面。
 
 <p align="center"><a href="./docs/benchmarks.md">测试方法</a> · <a href="./benchmarks/results/runtime-2026-10-07.json">原始样本</a> · <a href="./docs/architecture.md">架构</a> · <a href="./docs/agent-tools.md">Agent 工具</a></p>
 

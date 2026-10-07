@@ -1,12 +1,5 @@
-<h1 align="center">Jet Browser</h1>
-
 <p align="center">
-  <strong>A small, open browser runtime for web agents.</strong><br>
-  WPE WebKit, native input, deterministic automation, and an embeddable JSONL protocol.
-</p>
-
-<p align="center">
-  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser open-source browser runtime">
+  <img width="100%" src="./docs/assets/jet-browser-banner.svg" alt="Jet Browser — a small browser runtime for web agents">
 </p>
 
 <p align="center">
@@ -21,9 +14,9 @@
   <a href="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
-Jet Browser is a real browser runtime for agents—not an agent framework wrapped around somebody else’s browser. It packages WPE WebKit and a Rust WebDriver bridge into one isolated container with an ordered JSONL boundary. Your harness decides; Jet executes browser actions and returns machine-readable evidence.
+Jet Browser packages WPE WebKit and a Rust WebDriver bridge as a standalone runtime. One container runs one isolated browser session; your harness sends ordered JSONL commands and receives machine-readable results.
 
-No account, API key, database, model, or hosted control plane is required. Run it locally, in CI, or behind your own scheduler without adopting a vendor agent loop.
+Bring any harness or deterministic test runner. No account, API key, model, database, or hosted control plane is required.
 
 <p align="center">
   <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·

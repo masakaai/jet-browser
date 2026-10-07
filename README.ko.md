@@ -1,9 +1,5 @@
-<h1 align="center">Jet Browser</h1>
-
-<p align="center"><strong>웹 에이전트를 위한 작고 개방된 브라우저 런타임.</strong><br>WPE WebKit, 네이티브 입력, 결정적 자동화, 임베드 가능한 JSONL 프로토콜.</p>
-
 <p align="center">
-  <img width="100%" src="./docs/assets/jet-browser-banner.png" alt="Jet Browser 오픈 소스 브라우저 런타임">
+  <img width="100%" src="./docs/assets/jet-browser-banner.svg" alt="Jet Browser 오픈 소스 브라우저 런타임">
 </p>
 
 <p align="center"><a href="./README.md">English</a> · <a href="./README.zh-CN.md">简体中文</a> · <a href="./README.ja.md">日本語</a> · 한국어 · <a href="./README.de.md">Deutsch</a> · <a href="./README.fr.md">Français</a> · <a href="./README.es.md">Español</a> · <a href="./README.pt-BR.md">Português</a></p>

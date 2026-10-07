@@ -22,25 +22,26 @@ const niceMaximum = value => {
 };
 
 function panel({ title, unit, values, x, y, width, height }) {
-  const padding = 32;
-  const plotX = x + padding;
-  const plotWidth = width - padding * 2;
-  const barHeight = 18;
-  const rowGap = 70;
-  const plotTop = y + 112;
+  const padding = 30;
+  const labelWidth = 142;
+  const valueWidth = 92;
+  const plotX = x + padding + labelWidth;
+  const plotWidth = width - padding * 2 - labelWidth - valueWidth;
+  const barHeight = 14;
+  const rowGap = 58;
+  const plotTop = y + 82;
   const maximum = niceMaximum(Math.max(...values.map(item => item.value)) * 1.08);
   const jet = values.find(item => item.name === 'jet');
   const alternative = values.filter(item => item.name !== 'jet').sort((left, right) => left.value - right.value)[0];
   const difference = jet && alternative ? Math.round(Math.abs(1 - jet.value / alternative.value) * 100) : null;
-  const claim = difference === null ? 'Measured p50' : `${difference}% ${jet.value <= alternative.value ? 'lower' : 'higher'}`;
-  const comparison = alternative ? `vs ${labels[alternative.name] || alternative.name}` : 'verified samples';
+  const claim = difference === null ? 'p50' : `${jet.value <= alternative.value ? '−' : '+'}${difference}%`;
   const bars = values.map((item, index) => {
     const rowY = plotTop + index * rowGap;
     const barWidth = Math.max(10, Math.round((item.value / maximum) * plotWidth));
     const focal = item.name === 'jet';
-    return `<text x="${plotX}" y="${rowY + 17}" fill="${focal ? '#292523' : '#625d59'}" font-size="15" font-weight="${focal ? '700' : '600'}" font-family="'DM Sans', Arial, sans-serif">${esc(labels[item.name] || item.name)}</text><text x="${x + width - padding}" y="${rowY + 17}" fill="${focal ? '#d85f18' : '#625d59'}" font-size="13" font-weight="700" font-family="'Space Mono', monospace" text-anchor="end">${esc(item.value)} ${unit}</text><rect x="${plotX}" y="${rowY + 30}" width="${plotWidth}" height="${barHeight}" rx="9" fill="#ebe9e3"/><rect x="${plotX}" y="${rowY + 30}" width="${barWidth}" height="${barHeight}" rx="9" fill="${focal ? '#e87532' : '#c8c6c0'}"/>`;
+    return `<text x="${x + padding}" y="${rowY + 12}" fill="${focal ? '#111111' : '#66686d'}" font-size="15" font-weight="${focal ? '700' : '600'}" font-family="Arial, Helvetica, sans-serif">${esc(labels[item.name] || item.name)}</text><rect x="${plotX}" y="${rowY}" width="${plotWidth}" height="${barHeight}" rx="7" fill="#e5e7eb"/><rect x="${plotX}" y="${rowY}" width="${barWidth}" height="${barHeight}" rx="7" fill="${focal ? '#f97316' : '#c9cdd3'}"/><text x="${x + width - padding}" y="${rowY + 12}" fill="${focal ? '#f97316' : '#66686d'}" font-size="13" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="end">${esc(item.value)} ${unit}</text>`;
   }).join('');
-  return `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="22" fill="#fff" stroke="#d9d6cf"/><text x="${x + padding}" y="${y + 48}" fill="#292523" font-size="25" font-weight="700" font-family="'DM Sans', Arial, sans-serif">${esc(title)}</text><text x="${x + padding}" y="${y + 76}" fill="#726a65" font-size="12" font-family="'Space Mono', monospace">P50 · LOWER IS BETTER</text><rect x="${x + width - 154}" y="${y + 24}" width="122" height="36" rx="9" fill="#fff1e7" stroke="#eeb28a"/><text x="${x + width - 93}" y="${y + 48}" fill="#d85f18" font-size="15" font-weight="700" font-family="'DM Sans', Arial, sans-serif" text-anchor="middle">${esc(claim)}</text><text x="${x + width - padding}" y="${y + 78}" fill="#8a817b" font-size="11" font-family="'DM Sans', Arial, sans-serif" text-anchor="end">${esc(comparison)}</text>${bars}<text x="${x + padding}" y="${y + height - 20}" fill="#726a65" font-size="12" font-family="'Space Mono', monospace">${esc(values[0]?.passed || 0)}/${esc(values[0]?.requested || 0)} PASSED · MEDIAN OF VERIFIED RUNS</text></g>`;
+  return `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="#f8f8f9" stroke="#e2e4e8"/><text x="${x + padding}" y="${y + 43}" fill="#111111" font-size="23" font-weight="700" font-family="Arial, Helvetica, sans-serif">${esc(title)}</text><text x="${x + width - padding}" y="${y + 43}" fill="#f97316" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="end">${esc(claim)}</text>${bars}<text x="${x + padding}" y="${y + height - 22}" fill="#777a80" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">p50 · ${esc(values[0]?.passed || 0)}/${esc(values[0]?.requested || 0)} passed</text></g>`;
 }
 
 export function renderBenchmarkSvg(summary) {
@@ -52,22 +53,17 @@ export function renderBenchmarkSvg(summary) {
   }
   const ready = entries.map(([name, value]) => ({ name, value: value.browserReadyMs.median, passed: value.passed, requested: value.requested }));
   const memory = entries.map(([name, value]) => ({ name, value: value.activeMemoryMiB.median, passed: value.passed, requested: value.requested }));
-  const date = String(summary.capturedAt || '').slice(0, 10);
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
-  <title id="jet-runtime-benchmark-title">Jet Browser reproducible runtime benchmark</title>
-  <desc id="jet-runtime-benchmark-desc">Horizontal bar charts compare median time to a verified browser page and median active container memory for Jet Browser and pinned self-hosted browser implementations. Lower is better.</desc>
-  <rect width="1200" height="700" fill="#f4f2ec"/>
-  <text x="48" y="42" fill="#8a817b" font-size="12" font-family="'Space Mono', monospace" letter-spacing="2">JET BROWSER · REPRODUCIBLE RUNTIME BENCHMARK</text>
-  <text x="48" y="88" fill="#292523" font-size="38" font-weight="700" font-family="'DM Sans', Arial, sans-serif">Verified browser runtime, measured end to end.</text>
-  <text x="48" y="122" fill="#726a65" font-size="16" font-family="'DM Sans', Arial, sans-serif">Same Linux host · offline fixture · 2 CPU · 1 GiB · ${esc(date)} · lower is better</text>
-  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 152, width: 536, height: 430 })}
-  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 152, width: 536, height: 430 })}
-  <line x1="48" y1="620" x2="1152" y2="620" stroke="#d9d6cf" stroke-width="1"/>
-  <rect x="48" y="648" width="18" height="18" rx="9" fill="#e87532"/><text x="78" y="662" fill="#292523" font-size="13" font-weight="700" font-family="'DM Sans', Arial, sans-serif">Jet Browser</text>
-  <rect x="210" y="648" width="18" height="18" rx="9" fill="#c8c6c0"/><text x="240" y="662" fill="#726a65" font-size="13" font-family="'DM Sans', Arial, sans-serif">Pinned upstream runtime</text>
-  <text x="1152" y="656" fill="#726a65" font-size="11" font-family="'Space Mono', monospace" text-anchor="end">7 RUNS EACH · RAW JSON + SOURCE LOCK IN /BENCHMARKS</text>
-  <text x="1152" y="678" fill="#8a817b" font-size="11" font-family="'DM Sans', Arial, sans-serif" text-anchor="end">Cold container start → verified title + DOM + JavaScript + PNG</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
+  <title id="jet-runtime-benchmark-title">Jet Browser runtime benchmark</title>
+  <desc id="jet-runtime-benchmark-desc">Median browser-ready time and active memory across complete passing sample sets. Lower is better.</desc>
+  <rect width="1200" height="540" fill="#ffffff"/>
+  <text x="48" y="55" fill="#111111" font-size="34" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser runtime benchmark</text>
+  <text x="48" y="91" fill="#66686d" font-size="16" font-family="Arial, Helvetica, sans-serif">Median of ${esc(summary.method.runs)} runs · same Linux host · lower is better</text>
+  <rect x="48" y="122" width="18" height="12" rx="6" fill="#f97316"/><text x="78" y="133" fill="#333438" font-size="13" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser</text>
+  <rect x="196" y="122" width="18" height="12" rx="6" fill="#c9cdd3"/><text x="226" y="133" fill="#66686d" font-size="13" font-family="Arial, Helvetica, sans-serif">Other runtimes</text>
+  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 158, width: 536, height: 342 })}
+  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 158, width: 536, height: 342 })}
 </svg>`;
 }
 
@@ -80,11 +76,11 @@ export function renderBenchmarkHtml(summary) {
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Jet Browser runtime benchmark</title>
   <style>
-    :root { color-scheme: light; background:#f2f1e9; }
+    :root { color-scheme: light; background:#f3f4f6; }
     * { box-sizing:border-box; }
-    body { min-height:100vh; display:grid; place-items:center; margin:0; padding:24px; background:#f2f1e9; }
+    body { min-height:100vh; display:grid; place-items:center; margin:0; padding:24px; background:#f3f4f6; }
     main { width:min(1200px,100%); }
-    svg { display:block; width:100%; height:auto; border:1px solid #cbc4c0; }
+    svg { display:block; width:100%; height:auto; border:1px solid #e2e4e8; }
   </style>
 </head>
 <body><main>${svg}</main></body>
