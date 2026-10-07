@@ -38,9 +38,10 @@ The container reads one command per line from standard input and writes one resp
 
 ~~~bash
 printf '%s\n' \
-  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"eager"}' \
-  '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
-  '{"op":"title"}' \
+  '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}' \
+  '{"op":"begin_navigation","url":"http://127.0.0.1:8080/"}' \
+  '{"op":"document_state"}' \
+  '{"op":"snapshot"}' \
   '{"op":"screenshot"}' \
   '{"op":"close"}' |
 docker run --rm -i --network=none --cap-drop=ALL \

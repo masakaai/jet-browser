@@ -24,10 +24,12 @@ if (!noBuild) {
   ], { cwd: root });
 }
 
+const readinessProbes = 12;
 const commands = [
-  { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'eager' },
-  { op: 'navigate', url: 'http://127.0.0.1:8080/' },
-  { op: 'title' },
+  { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' },
+  { op: 'begin_navigation', url: 'http://127.0.0.1:8080/' },
+  ...Array.from({ length: readinessProbes }, () => ({ op: 'document_state' })),
+  { op: 'snapshot' },
   { op: 'evaluate', expression: "(()=>{document.querySelector('#message').focus();return true})()" },
   { op: 'input', events: [{ type: 'text', text: 'open-source runtime' }] },
   { op: 'evaluate', expression: "(()=>({value:document.querySelector('#message').value,result:document.querySelector('#result').value}))()" },
@@ -101,14 +103,21 @@ const responses = lines.map((line, index) => {
   return response.value;
 });
 
-const title = responses[2];
-if (title !== 'Jet Browser Ready') throw Error('Unexpected title: ' + title);
-const evaluation = responses[5];
+const probeStart = 2;
+const snapshotIndex = probeStart + readinessProbes;
+const target = 'http://127.0.0.1:8080/';
+const ready = responses.slice(probeStart, snapshotIndex).some(state =>
+  state?.url === target && ['interactive', 'complete'].includes(state.readyState));
+if (!ready) throw Error('Fixture document did not become ready');
+const snapshot = responses[snapshotIndex];
+const title = snapshot?.title;
+if (title !== 'Jet Browser Ready' || snapshot?.url !== target) throw Error('Unexpected page snapshot');
+const evaluation = responses[snapshotIndex + 3];
 const value = evaluation?.result?.value ?? evaluation?.value ?? evaluation;
 if (value?.value !== 'open-source runtime' || value?.result !== 'open-source runtime') {
   throw Error('Native text input did not update the page');
 }
-const screenshotBytes = Buffer.from(responses[6], 'base64').length;
+const screenshotBytes = Buffer.from(responses[snapshotIndex + 4], 'base64').length;
 if (screenshotBytes < 1000) throw Error('Browser screenshot was unexpectedly small');
 
 console.log(JSON.stringify({
