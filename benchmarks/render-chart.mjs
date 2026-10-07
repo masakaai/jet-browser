@@ -41,7 +41,7 @@ function panel({ title, unit, values, x, y, width, height }) {
     const focal = item.name === 'jet';
     return `<text x="${x + padding}" y="${rowY + 12}" fill="${focal ? '#111111' : '#66686d'}" font-size="15" font-weight="${focal ? '700' : '600'}" font-family="Arial, Helvetica, sans-serif">${esc(labels[item.name] || item.name)}</text><rect x="${plotX}" y="${rowY}" width="${plotWidth}" height="${barHeight}" rx="7" fill="#e5e7eb"/><rect x="${plotX}" y="${rowY}" width="${barWidth}" height="${barHeight}" rx="7" fill="${focal ? '#f97316' : '#c9cdd3'}"/><text x="${x + width - padding}" y="${rowY + 12}" fill="${focal ? '#f97316' : '#66686d'}" font-size="13" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" text-anchor="end">${esc(item.value)} ${unit}</text>`;
   }).join('');
-  return `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="#f8f8f9" stroke="#e2e4e8"/><text x="${x + padding}" y="${y + 43}" fill="#111111" font-size="23" font-weight="700" font-family="Arial, Helvetica, sans-serif">${esc(title)}</text><text x="${x + width - padding}" y="${y + 43}" fill="#f97316" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="end">${esc(claim)}</text>${bars}<text x="${x + padding}" y="${y + height - 22}" fill="#777a80" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, monospace">p50 · ${esc(values[0]?.passed || 0)}/${esc(values[0]?.requested || 0)} passed</text></g>`;
+  return `<g><rect x="${x}" y="${y}" width="${width}" height="${height}" rx="18" fill="#f8f8f9" stroke="#e2e4e8"/><text x="${x + padding}" y="${y + 43}" fill="#111111" font-size="23" font-weight="700" font-family="Arial, Helvetica, sans-serif">${esc(title)}</text><text x="${x + width - padding}" y="${y + 43}" fill="#f97316" font-size="18" font-weight="700" font-family="Arial, Helvetica, sans-serif" text-anchor="end">${esc(claim)}</text>${bars}</g>`;
 }
 
 export function renderBenchmarkSvg(summary) {
@@ -51,19 +51,18 @@ export function renderBenchmarkSvg(summary) {
       throw Error(`${name} cannot be charted without a complete passing sample set`);
     }
   }
-  const ready = entries.map(([name, value]) => ({ name, value: value.browserReadyMs.median, passed: value.passed, requested: value.requested }));
-  const memory = entries.map(([name, value]) => ({ name, value: value.activeMemoryMiB.median, passed: value.passed, requested: value.requested }));
+  const ready = entries.map(([name, value]) => ({ name, value: value.browserReadyMs.median }));
+  const memory = entries.map(([name, value]) => ({ name, value: value.activeMemoryMiB.median }));
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 470" role="img" aria-labelledby="jet-runtime-benchmark-title jet-runtime-benchmark-desc">
   <title id="jet-runtime-benchmark-title">Jet Browser runtime benchmark</title>
   <desc id="jet-runtime-benchmark-desc">Median browser-ready time and active memory across complete passing sample sets. Lower is better.</desc>
-  <rect width="1200" height="540" fill="#ffffff"/>
+  <rect width="1200" height="470" fill="#ffffff"/>
   <text x="48" y="55" fill="#111111" font-size="34" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser runtime benchmark</text>
-  <text x="48" y="91" fill="#66686d" font-size="16" font-family="Arial, Helvetica, sans-serif">Median of ${esc(summary.method.runs)} runs · same Linux host · lower is better</text>
-  <rect x="48" y="122" width="18" height="12" rx="6" fill="#f97316"/><text x="78" y="133" fill="#333438" font-size="13" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser</text>
-  <rect x="196" y="122" width="18" height="12" rx="6" fill="#c9cdd3"/><text x="226" y="133" fill="#66686d" font-size="13" font-family="Arial, Helvetica, sans-serif">Other runtimes</text>
-  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 158, width: 536, height: 342 })}
-  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 158, width: 536, height: 342 })}
+  <rect x="48" y="82" width="18" height="12" rx="6" fill="#f97316"/><text x="78" y="93" fill="#333438" font-size="13" font-weight="700" font-family="Arial, Helvetica, sans-serif">Jet Browser</text>
+  <rect x="196" y="82" width="18" height="12" rx="6" fill="#c9cdd3"/><text x="226" y="93" fill="#66686d" font-size="13" font-family="Arial, Helvetica, sans-serif">Other runtimes</text>
+  ${panel({ title: 'Browser ready', unit: 'ms', values: ready, x: 48, y: 112, width: 536, height: 310 })}
+  ${panel({ title: 'Active memory', unit: 'MiB', values: memory, x: 616, y: 112, width: 536, height: 310 })}
 </svg>`;
 }
 

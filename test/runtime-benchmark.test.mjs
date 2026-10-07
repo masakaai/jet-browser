@@ -71,7 +71,7 @@ test('README chart is accessible, branded, and generated from measured data', ()
   assert.match(svg, />105 MiB</);
   assert.match(svg, />−65%</);
   assert.match(svg, />−74%</);
-  assert.match(svg, /p50 · 3\/3 passed/);
+  assert.doesNotMatch(svg, /p50|passed|Median of .* runs|same Linux host/i);
   assert.doesNotMatch(svg, /vs Browserless|MEDIAN OF VERIFIED RUNS|RAW JSON|Cold container start|measured end to end/i);
   assert.doesNotMatch(svg, /JetBrains Mono/i);
   const html = renderBenchmarkHtml(summarizeRuntimeReport(fixture));
@@ -109,7 +109,7 @@ test('published report has seven verified samples and Jet leads both scoped metr
   const svg = renderBenchmarkSvg(summary);
   assert.match(svg, />−73%</);
   assert.match(svg, />−33%</);
-  assert.match(svg, /p50 · 7\/7 passed/);
+  assert.doesNotMatch(svg, /p50|passed|Median of .* runs|same Linux host/i);
 });
 
 test('competitor manifest pins source commits and states benchmark inclusion', () => {
