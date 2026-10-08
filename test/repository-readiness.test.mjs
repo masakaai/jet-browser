@@ -76,3 +76,33 @@ test('stable releases publish an attested standalone image from the release tag'
   assert.match(readme, /--platform=linux\/amd64/);
   assert.match(readme, /Published from a tagged GitHub release/);
 });
+
+test('the root action runs the published runtime smoke flow without user secrets', async () => {
+  const action = await readFile(resolve(root, 'action.yml'), 'utf8');
+  const workflow = await readFile(resolve(root, '.github/workflows/ci.yml'), 'utf8');
+  const readme = await readFile(resolve(root, 'README.md'), 'utf8');
+  const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+
+  assert.match(action, /^name: Jet Browser Runtime Smoke Test$/m);
+  assert.match(action, /^  using: composite$/m);
+  assert.match(action, /uses: actions\/setup-node@[0-9a-f]{40}/);
+  assert.match(action, /node-version: 24/);
+  assert.match(action, new RegExp(`default: ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
+  assert.match(action, /docker pull --platform=linux\/amd64 "\$JET_BROWSER_IMAGE"/);
+  assert.match(action, /node "\$GITHUB_ACTION_PATH\/scripts\/standalone-smoke\.mjs" --no-build/);
+  assert.match(action, /DOCKER_DEFAULT_PLATFORM: linux\/amd64/);
+  assert.match(action, /ensure_sysctl .* kernel\.unprivileged_userns_clone 1/);
+  assert.match(action, /ensure_sysctl .* kernel\.apparmor_restrict_unprivileged_userns 0/);
+  assert.doesNotMatch(action, /secrets\.|github\.token|GITHUB_TOKEN/);
+  assert.match(workflow, /uses: \.\//);
+  assert.doesNotMatch(workflow, /sysctl -w/);
+  assert.match(readme, new RegExp(`uses: masakaai/jet-browser@v${packageJson.version.replaceAll('.', '\\.')}\\b`));
+});
+
+test('the portable Agent Plugin manifest stays schema-clean', async () => {
+  const manifest = JSON.parse(await readFile(resolve(root, 'plugins/jet-browser/plugin.json'), 'utf8'));
+  const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  assert.equal(manifest.$schema, 'https://agent-plugins.org/schemas/1.0.0/plugin.schema.json');
+  assert.equal(manifest.version, packageJson.version);
+  assert.equal(manifest.interface, undefined);
+});
