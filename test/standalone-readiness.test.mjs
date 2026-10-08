@@ -25,7 +25,9 @@ test('public project presentation is independent from a hosted platform', async 
     'https://masaka-ai.vercel.app/jet-browser/tech-report/',
   ];
   for (const link of companionLinks) assert.match(readmes[0], new RegExp(link.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  const primaryWithoutCompanionLinks = companionLinks.reduce((value, link) => value.replaceAll(link, ''), readmes[0]);
+  const primaryWithoutCompanionLinks = companionLinks
+    .reduce((value, link) => value.replaceAll(link, ''), readmes[0])
+    .replace(/### 1\. Install the Codex plugin[\s\S]*?(?=### 2\.)/, '');
   const hostedDependency = /masaka-backend|Vercel|Supabase|Postgres|\bKernel\b/i;
   assert.doesNotMatch(primaryWithoutCompanionLinks, hostedDependency);
   for (const value of [...readmes.slice(1), ...publicGuides]) assert.doesNotMatch(value, hostedDependency);

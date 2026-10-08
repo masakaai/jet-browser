@@ -1,0 +1,20 @@
+{
+  "name": "masaka",
+  "interface": {
+    "displayName": "MASAKA"
+  },
+  "plugins": [
+    {
+      "name": "jet-browser",
+      "source": {
+        "source": "local",
+        "path": "./plugins/jet-browser"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer"
+    }
+  ]
+}

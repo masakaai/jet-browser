@@ -25,11 +25,37 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
 
+## Reproducible runtime benchmark
+
+Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of active memory—**72.7% lower ready time** and **33.2% lower memory** than the next result. [Method](./docs/benchmarks.md) · [Raw data](./benchmarks/results/runtime-2026-10-07.json)
+
+<p align="center">
+  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
+</p>
+
+## Let your coding agent verify it
+
+Paste this single line into Codex, Claude Code, or another repository-aware coding agent. GitHub code blocks include a one-click copy action.
+
+~~~text
+Install or upgrade Jet Browser to the latest main for this repository from https://github.com/masakaai/jet-browser. Read README.md and use its Codex marketplace instructions when plugin commands are available; otherwise register .agents/skills/jet-browser/SKILL.md as a repository skill. Confirm Docker and Node.js 24+, run npm run standalone, and report whether browser startup, native input, DOM verification, and PNG capture passed. Do not attach to my daily Chrome profile or start a persistent Chrome daemon. Follow docs/demo.md if setup or verification fails.
+~~~
+
 ## Quick start
 
 Requirements: Docker and Node.js 24+.
 
-### 1. Run the verified standalone flow
+### 1. Install the Codex plugin
+
+Add MASAKA's repository marketplace, then install the Jet Browser plugin:
+
+~~~bash
+codex plugin marketplace add masakaai/jet-browser --ref main && codex plugin add jet-browser@masaka
+~~~
+
+The plugin installs the Jet Browser skill, which teaches Codex how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
+
+### 2. Run the verified standalone flow
 
 The smoke test builds the image, disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
 
@@ -48,15 +74,6 @@ Successful output includes:
   "title": "Jet Browser Ready",
   "input": "open-source runtime"
 }
-~~~
-
-### 2. Let your coding agent verify it
-
-Paste this into Codex, Claude Code, or another repository-aware coding agent:
-
-~~~text
-Set up Jet Browser for this repository: https://github.com/masakaai/jet-browser.
-Read README.md and docs/demo.md, then run npm run standalone and report whether it passed.
 ~~~
 
 ### 3. Embed the runtime boundary
@@ -95,14 +112,6 @@ For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sd
 | **Native input plus semantic and visual evidence** | Pointer, keyboard, touch, tabs, DOM capture, JavaScript results, and screenshots share one runtime. |
 | **Versioned tool schemas** | Bind Jet to an agent harness without letting model/tool naming changes mutate the execution contract. |
 | **Standalone core, optional distributed layer** | Start locally; add preview, takeover, persistence, regional scheduling, and fleet control only when needed. |
-
-## Reproducible runtime benchmark
-
-Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of active memory—**72.7% lower ready time** and **33.2% lower memory** than the next result. [Method](./docs/benchmarks.md) · [Raw data](./benchmarks/results/runtime-2026-10-07.json)
-
-<p align="center">
-  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Horizontal bar charts comparing median verified browser-ready time and active container memory for Jet Browser, Browser Use, Steel Browser, and Browserless. Lower is better in both panels.">
-</p>
 
 ## What ships
 
