@@ -99,7 +99,7 @@ jobs:
         uses: masakaai/jet-browser@v0.6.7
 ~~~
 
-The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing a self-hosted kernel.
+The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
 
 ### 3. Embed the runtime boundary
 
