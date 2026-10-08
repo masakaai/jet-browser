@@ -16,6 +16,20 @@ test('public README has portable links and no private machine paths', async () =
   for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'Dockerfile.standalone', 'scripts/standalone-smoke.mjs', 'sdk/tools.mjs']) await access(resolve(root, path));
 });
 
+test('issue routing separates open-source discussion from managed support', async () => {
+  const config = await readFile(resolve(root, '.github/ISSUE_TEMPLATE/config.yml'), 'utf8');
+  const contacts = new Map([...config.matchAll(/^\s+- name: (.+)\n\s+url: (.+)\n\s+about: (.+)$/gm)]
+    .map(([, name, url, about]) => [name, { url, about }]));
+  assert.deepEqual(contacts.get('Open-source questions and ideas'), {
+    url: 'https://github.com/masakaai/jet-browser/discussions',
+    about: 'Ask questions, propose integrations, or share examples with the Jet Browser community.',
+  });
+  assert.deepEqual(contacts.get('MASAKA managed service support'), {
+    url: 'https://masaka-ai.vercel.app/docs/support/',
+    about: 'Ask about MASAKA-managed browser infrastructure and account-specific support.',
+  });
+});
+
 test('package and default worker versions stay aligned', async () => {
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
   const worker = await readFile(resolve(root, 'src/wpe-worker.mjs'), 'utf8');
