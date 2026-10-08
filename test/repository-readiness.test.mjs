@@ -48,3 +48,31 @@ test('package exports preserve legacy SDK subpaths alongside stable aliases', as
   assert.equal(typeof (await import('jet-browser/tools')).compileToolCatalog, 'function');
   assert.equal(typeof (await import('jet-browser/sdk/transport.mjs')).MasakaTransport, 'function');
 });
+
+test('stable releases publish an attested standalone image from the release tag', async () => {
+  const workflow = await readFile(resolve(root, '.github/workflows/publish-container.yml'), 'utf8');
+  const readme = await readFile(resolve(root, 'README.md'), 'utf8');
+  const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+
+  assert.match(workflow, /^\s*release:\s*\n\s+types: \[published\]/m);
+  assert.doesNotMatch(workflow, /^  (push|pull_request):/m);
+  assert.match(workflow, /github\.event\.release\.prerelease == false/);
+  for (const permission of ['contents: read', 'packages: write', 'attestations: write', 'id-token: write']) {
+    assert.match(workflow, new RegExp(permission));
+  }
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /RELEASE_REF: \$\{\{ github\.ref \}\}/);
+  assert.match(workflow, /git fetch --force --depth=1 origin "\$RELEASE_REF"/);
+  assert.match(workflow, /FETCH_HEAD\^\{commit\}/);
+  assert.match(workflow, /IMAGE_NAME: \$\{\{ github\.repository \}\}/);
+  assert.match(workflow, /file: \.\/Dockerfile\.standalone/);
+  assert.match(workflow, /flavor: latest=false/);
+  assert.match(workflow, /type=semver,pattern=\{\{version\}\}/);
+  assert.doesNotMatch(workflow, /type=semver,pattern=\{\{major\}\}\.\{\{minor\}\}|type=raw,value=latest/);
+  assert.match(workflow, /subject-digest: \$\{\{ steps\.push\.outputs\.digest \}\}/);
+
+  assert.match(readme, new RegExp(`ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
+  assert.doesNotMatch(readme, /ghcr\.io\/masakaai\/jet-browser:latest/);
+  assert.match(readme, /--platform=linux\/amd64/);
+  assert.match(readme, /Published from a tagged GitHub release/);
+});

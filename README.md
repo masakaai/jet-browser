@@ -63,13 +63,16 @@ Both paths install the Jet Browser skill, which teaches coding agents how to che
 
 ### 2. Run the verified standalone flow
 
-The smoke test builds the image, disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
+Published from a tagged GitHub release, the public `linux/amd64` image carries build provenance for its immutable digest. The smoke test disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-npm run standalone
+docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.6.6
+DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.6.6 npm run standalone:smoke
 ~~~
+
+The published image currently targets `linux/amd64`; ARM hosts need Docker's amd64 emulation for this path. Pin its digest in production. To build and verify the checked-out source for the host architecture instead, run `npm run standalone`.
 
 Successful output includes:
 
@@ -87,8 +90,6 @@ Successful output includes:
 Each input line is one JSON command; each output line is one JSON response. A supervisor in any language can own the container lifecycle and keep the model or harness replaceable.
 
 ~~~bash
-docker build -f Dockerfile.standalone -t jet-browser:local .
-
 printf '%s\n' \
   '{"op":"create","proxy":null,"profile_dir":null,"page_load_strategy":"none"}' \
   '{"op":"navigate","url":"http://127.0.0.1:8080/"}' \
@@ -96,14 +97,14 @@ printf '%s\n' \
   '{"op":"snapshot"}' \
   '{"op":"screenshot"}' \
   '{"op":"close"}' |
-docker run --rm -i --network=none --cap-drop=ALL \
+docker run --rm -i --platform=linux/amd64 --network=none --cap-drop=ALL \
   --env=JET_BROWSER_SMOKE=1 \
   --cap-add=SETUID --cap-add=SETGID \
   --security-opt=apparmor=unconfined \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
-  --pids-limit=256 --shm-size=256m jet-browser:local
+  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.6.6
 ~~~
 
 For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).

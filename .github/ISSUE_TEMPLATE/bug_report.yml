@@ -11,7 +11,7 @@ body:
     attributes:
       label: Version or commit
       description: Release tag, commit SHA, or container image digest.
-      placeholder: v0.6.5
+      placeholder: v0.6.6
     validations:
       required: true
   - type: dropdown
