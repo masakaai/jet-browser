@@ -1,0 +1,24 @@
+{
+  "name": "masaka",
+  "description": "Install MASAKA agent plugins directly from their source repositories.",
+  "owner": {
+    "name": "MASAKA",
+    "url": "https://masaka-ai.vercel.app/"
+  },
+  "plugins": [
+    {
+      "name": "jet-browser",
+      "description": "Install, verify, and integrate the lightweight Jet Browser runtime for browser agents.",
+      "category": "automation",
+      "source": "./plugins/jet-browser",
+      "homepage": "https://github.com/masakaai/jet-browser",
+      "keywords": [
+        "browser-agent",
+        "webkit",
+        "automation",
+        "runtime",
+        "skill"
+      ]
+    }
+  ]
+}
