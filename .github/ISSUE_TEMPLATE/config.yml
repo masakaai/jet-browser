@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/masakaai/jet-browser/security/policy
+    about: Report vulnerabilities privately; do not open a public issue.
+  - name: Integration support
+    url: https://masaka-ai.vercel.app/docs/support/
+    about: Ask about MASAKA-managed browser infrastructure and account-specific support.
