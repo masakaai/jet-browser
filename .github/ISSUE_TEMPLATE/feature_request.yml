@@ -1,0 +1,41 @@
+name: Feature request
+description: Propose a focused change to the Jet Browser runtime boundary
+title: "feature: "
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: What agent, harness, or deterministic test workflow is blocked today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_boundary
+    attributes:
+      label: Proposed runtime boundary
+      description: Describe the smallest protocol, SDK, runtime, or documentation change that solves the use case.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Explain why this cannot remain in the calling harness or optional control plane.
+    validations:
+      required: true
+  - type: textarea
+    id: compatibility
+    attributes:
+      label: Compatibility and verification
+      description: Note schema, lifecycle, security, and benchmark implications plus how the change could be tested.
+    validations:
+      required: true
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check
+      options:
+        - label: This request preserves Jet Browser as a model- and framework-neutral browser runtime.
+          required: true
+        - label: I searched existing issues and did not find the same request.
+          required: true

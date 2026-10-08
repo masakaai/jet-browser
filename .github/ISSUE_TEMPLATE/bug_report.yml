@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a reproducible Jet Browser defect
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Jet Browser. Use a disposable local fixture and replace real credentials, session cookies or profiles, private tickets or hostnames, and personal data with synthetic values before posting.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Release tag, commit SHA, or container image digest.
+      placeholder: v0.6.5
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Standalone container lifecycle
+        - JSONL protocol or SDK
+        - Native input
+        - DOM, JavaScript, or screenshots
+        - Profiles, storage, or downloads
+        - Agent Skill or Codex plugin
+        - Benchmark reproduction
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include exact commands and the smallest local fixture needed to reproduce the issue.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: Include bounded logs or JSONL output after redaction.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, architecture, Docker, Node.js, Rust, and WPE image details that affect reproduction.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed real credentials, session cookies or profiles, private tickets or hostnames, and personal data; any fixture values are disposable and synthetic.
+          required: true
+        - label: I searched existing issues and did not find the same report.
+          required: true
