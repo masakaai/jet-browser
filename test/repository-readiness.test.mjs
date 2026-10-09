@@ -97,6 +97,7 @@ test('the root action runs the published runtime smoke flow without user secrets
   assert.match(workflow, /uses: \.\//);
   assert.doesNotMatch(workflow, /sysctl -w/);
   assert.match(readme, new RegExp(`uses: masakaai/jet-browser@v${packageJson.version.replaceAll('.', '\\.')}\\b`));
+  assert.match(readme, /https:\/\/github\.com\/marketplace\/actions\/jet-browser-runtime-smoke-test/);
 });
 
 test('the portable Agent Plugin manifest stays schema-clean', async () => {
