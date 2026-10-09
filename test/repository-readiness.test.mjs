@@ -16,6 +16,23 @@ test('public README has portable links and no private machine paths', async () =
   for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'Dockerfile.standalone', 'scripts/standalone-smoke.mjs', 'sdk/tools.mjs']) await access(resolve(root, path));
 });
 
+test('Simplified Chinese README keeps the benchmark and agent verification path upfront', async () => {
+  const readme = await readFile(resolve(root, 'README.zh-CN.md'), 'utf8');
+  const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  const benchmark = readme.indexOf('## 可复现运行时 Benchmark');
+  const agentVerification = readme.indexOf('## 让编码 Agent 自己完成验收');
+  const quickStart = readme.indexOf('## 快速开始');
+  const rationale = readme.indexOf('## 为什么选择 Jet Browser');
+
+  assert.ok(benchmark > 0 && benchmark < agentVerification);
+  assert.ok(agentVerification < quickStart && quickStart < rationale);
+  assert.match(readme, /https:\/\/github\.com\/marketplace\/actions\/jet-browser-runtime-smoke-test/);
+  assert.match(readme, /codex plugin marketplace add masakaai\/jet-browser --ref main/);
+  assert.match(readme, /claude plugin marketplace add masakaai\/jet-browser/);
+  assert.match(readme, /不要连接我的日用 Chrome Profile/);
+  assert.match(readme, new RegExp(`ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
+});
+
 test('issue routing separates open-source discussion from managed support', async () => {
   const config = await readFile(resolve(root, '.github/ISSUE_TEMPLATE/config.yml'), 'utf8');
   const contacts = new Map([...config.matchAll(/^\s+- name: (.+)\n\s+url: (.+)\n\s+about: (.+)$/gm)]

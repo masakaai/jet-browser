@@ -8,21 +8,60 @@ Jet Browser 把 WPE WebKit 与 Rust WebDriver bridge 封装成独立运行时。
 
 可以接入任意 Harness 或确定性测试程序，无需账号、API Key、模型、数据库或托管控制面。
 
-<p align="center"><a href="./docs/benchmarks.md">测试方法</a> · <a href="./benchmarks/results/runtime-2026-10-07.json">原始样本</a> · <a href="./docs/architecture.md">架构</a> · <a href="./docs/agent-tools.md">Agent 工具</a></p>
+<p align="center">
+  <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
+  <a href="./docs/benchmarks.md">测试方法</a> ·
+  <a href="./benchmarks/results/runtime-2026-10-07.json">原始样本</a>
+</p>
+
+## 可复现运行时 Benchmark
+
+Jet Browser 在 **1,445.25 ms** 内到达已验证页面，活动内存快照中位数为 **189.6 MiB**——相较每一列的次优结果，就绪时间低 **72.7%**，内存低 **33.2%**。[测试方法](./docs/benchmarks.md) · [原始数据](./benchmarks/results/runtime-2026-10-07.json)
+
+<p align="center">
+  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Jet Browser、Browser Use、Steel Browser 与 Browserless 的页面就绪时间和活动内存中位数对比；两个指标都是越低越好。">
+</p>
+
+## 让编码 Agent 自己完成验收
+
+将下面这一行粘贴到 Codex、Claude Code 或其他能够读取仓库的编码 Agent。GitHub 代码块自带一键复制按钮。
+
+~~~text
+为当前仓库从 https://github.com/masakaai/jet-browser 安装或升级 Jet Browser 最新 main。阅读 README.zh-CN.md；当 Codex 或 Claude Code 支持插件命令时使用其中的原生 Marketplace 安装方式，否则将 .agents/skills/jet-browser/SKILL.md 注册为仓库 Skill。确认 Docker 与 Node.js 24+ 可用，运行 npm run standalone，并报告浏览器启动、原生输入、DOM 验证和 PNG 截图是否全部通过。不要连接我的日用 Chrome Profile，也不要启动持久 Chrome daemon。若安装或验证失败，按照 docs/demo.md 排查。
+~~~
 
 ## 快速开始
 
 需要 Docker 与 Node.js 24+。
 
-### 1. 运行离线验证流程
+### 1. 安装编码 Agent 插件
 
-以下命令会构建镜像、关闭外网、启动真实浏览器、打开本地页面、通过原生输入写入文本、校验 DOM、截取 PNG，并关闭会话。
+Codex：
+
+~~~bash
+codex plugin marketplace add masakaai/jet-browser --ref main && codex plugin add jet-browser@masaka
+~~~
+
+Claude Code：
+
+~~~bash
+claude plugin marketplace add masakaai/jet-browser && claude plugin install jet-browser@masaka
+~~~
+
+两种方式都会安装 Jet Browser Skill，指导编码 Agent 检查环境、运行已验证的独立流程、接入带版本的工具 Schema，并保留运行时的安全边界。支持直接发现项目 Skill 的 Agent 也可以使用 [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md)。
+
+### 2. 运行发布版验证流程
+
+以下命令会拉取带构建来源证明的 `linux/amd64` 发布镜像，关闭浏览器外网、启动真实 WPE WebKit、打开内部测试页、通过原生输入写入文本、校验 DOM、截取 PNG，并关闭会话。
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-npm run standalone
+docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.6.7
+DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.6.7 npm run standalone:smoke
 ~~~
+
+发布镜像目前只提供 `linux/amd64`；ARM 主机需要 Docker 的 amd64 模拟。生产环境应固定镜像 digest。若要按宿主机架构构建并验证当前检出的源码，运行 `npm run standalone`。
 
 成功结果包含：
 
@@ -35,13 +74,18 @@ npm run standalone
 }
 ~~~
 
-### 2. 让编码 Agent 完成安装与验证
+也可以通过 [GitHub Marketplace Action](https://github.com/marketplace/actions/jet-browser-runtime-smoke-test) 运行同一套验收，无需仓库或账号密钥：
 
-把下面这段文字交给 Codex、Claude Code 或其他能够读取仓库的编码 Agent：
+~~~yaml
+permissions:
+  contents: read
 
-~~~text
-为当前仓库配置 Jet Browser：https://github.com/masakaai/jet-browser。
-阅读 README.zh-CN.md 与 docs/demo.md，然后运行 npm run standalone 并报告是否通过。
+jobs:
+  verify-browser-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify Jet Browser
+        uses: masakaai/jet-browser@v0.6.7
 ~~~
 
 ### 3. 接入运行时边界
@@ -60,14 +104,6 @@ npm run standalone
 | **原生输入 + 语义与视觉证据** | 鼠标、键盘、触摸、多标签页、DOM、JavaScript 结果与截图共用同一运行时。 |
 | **带版本的工具 Schema** | Harness 可以稳定接入，而模型侧工具名称变化不会破坏执行协议。 |
 | **独立核心 + 可选分布式层** | 先在本地运行，按需增加预览、接管、持久化、区域调度与 Fleet 管理。 |
-
-## 可复现运行时 Benchmark
-
-Jet Browser 在 **1,445.25 ms** 内到达已验证页面，活动内存为 **189.6 MiB**——相较次优结果，就绪时间低 **72.7%**，内存低 **33.2%**。[测试方法](./docs/benchmarks.md) · [原始数据](./benchmarks/results/runtime-2026-10-07.json)
-
-<p align="center">
-  <img width="100%" src="./docs/assets/runtime-benchmark.svg" alt="Jet Browser、Browser Use、Steel Browser 与 Browserless 的页面就绪时间和活动内存中位数对比；两个指标都是越低越好。">
-</p>
 
 ## 开源实现
 
