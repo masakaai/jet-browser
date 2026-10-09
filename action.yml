@@ -1,0 +1,74 @@
+name: Jet Browser Runtime Smoke Test
+description: Verify the Jet Browser WPE WebKit runtime with native input, DOM checks, and PNG capture.
+author: MASAKA
+
+branding:
+  icon: check-circle
+  color: orange
+
+inputs:
+  image:
+    description: Public or locally built Jet Browser image to verify.
+    required: false
+    default: ghcr.io/masakaai/jet-browser:0.6.7
+  pull:
+    description: Pull the image before verification; set to false for an existing local image.
+    required: false
+    default: 'true'
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js 24
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+
+    - name: Check the runner and inputs
+      shell: bash
+      env:
+        JET_BROWSER_PULL: ${{ inputs.pull }}
+      run: |
+        set -euo pipefail
+        if [ "${RUNNER_OS:-}" != "Linux" ]; then
+          echo "Jet Browser currently requires a Linux Docker runner." >&2
+          exit 1
+        fi
+        command -v docker >/dev/null
+        case "$JET_BROWSER_PULL" in
+          true|false) ;;
+          *) echo "pull must be true or false" >&2; exit 1 ;;
+        esac
+
+    - name: Enable the WPE browser sandbox
+      shell: bash
+      run: |
+        set -euo pipefail
+        ensure_sysctl() {
+          local file="$1" key="$2" expected="$3" current
+          [ -e "$file" ] || return 0
+          current="$(cat "$file")"
+          [ "$current" = "$expected" ] && return 0
+          if [ "${RUNNER_ENVIRONMENT:-}" != "github-hosted" ]; then
+            echo "$key must be $expected before Jet Browser runs on a self-hosted runner." >&2
+            exit 1
+          fi
+          sudo sysctl -w "$key=$expected"
+          [ "$(cat "$file")" = "$expected" ]
+        }
+        ensure_sysctl /proc/sys/kernel/unprivileged_userns_clone kernel.unprivileged_userns_clone 1
+        ensure_sysctl /proc/sys/kernel/apparmor_restrict_unprivileged_userns kernel.apparmor_restrict_unprivileged_userns 0
+
+    - name: Pull the released runtime image
+      if: ${{ inputs.pull == 'true' }}
+      shell: bash
+      env:
+        JET_BROWSER_IMAGE: ${{ inputs.image }}
+      run: docker pull --platform=linux/amd64 "$JET_BROWSER_IMAGE"
+
+    - name: Exercise browser startup, native input, DOM, and PNG capture
+      shell: bash
+      env:
+        DOCKER_DEFAULT_PLATFORM: linux/amd64
+        JET_BROWSER_IMAGE: ${{ inputs.image }}
+      run: node "$GITHUB_ACTION_PATH/scripts/standalone-smoke.mjs" --no-build
