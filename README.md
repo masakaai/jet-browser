@@ -21,6 +21,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
 <p align="center">
   <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·
   <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
+  <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
@@ -85,7 +86,7 @@ Successful output includes:
 }
 ~~~
 
-Run the same acceptance check in GitHub Actions without repository or account secrets:
+Run the same acceptance check with the [GitHub Marketplace Action](https://github.com/marketplace/actions/jet-browser-runtime-smoke-test) without repository or account secrets:
 
 ~~~yaml
 permissions:
