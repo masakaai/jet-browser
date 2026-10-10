@@ -108,6 +108,7 @@ export async function runStandaloneVerification({ verify = runStandaloneSmoke, s
       image: JET_BROWSER_IMAGE,
       docker: 'docker',
       noBuild: true,
+      startupTimeoutMs: 45_000,
       environment: childEnvironment(),
       signal,
     });
