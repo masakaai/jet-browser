@@ -22,6 +22,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·
   <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
   <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
+  <a href="./integrations/hermes/README.md">Hermes integration</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
@@ -60,7 +61,16 @@ Claude Code:
 claude plugin marketplace add masakaai/jet-browser && claude plugin install jet-browser@masaka
 ~~~
 
-Both paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
+Hermes Agent:
+
+~~~bash
+hermes plugins install masakaai/jet-browser/integrations/hermes
+hermes plugins enable jet-browser
+~~~
+
+The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
+
+The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
 
 ### 2. Run the verified standalone flow
 
