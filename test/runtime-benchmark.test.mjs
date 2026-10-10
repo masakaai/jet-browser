@@ -67,6 +67,8 @@ test('README chart is accessible, branded, and generated from measured data', ()
   assert.match(svg, /<title id="jet-runtime-benchmark-title">/);
   assert.match(svg, /lower is better/i);
   assert.match(svg, /#f97316/i);
+  assert.match(svg, /<text[^>]+fill="#c2410c"/);
+  assert.doesNotMatch(svg, /<text[^>]+fill="#f97316"/);
   assert.match(svg, />110 ms</);
   assert.match(svg, />105 MiB</);
   assert.match(svg, />−65%</);
