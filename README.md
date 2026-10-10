@@ -33,6 +33,19 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
 
+## Pick Jet Browser when
+
+Jet Browser is the execution layer for runs that need a clear, inspectable browser boundary:
+
+- **Isolation matters:** one disposable browser session per container, with explicit lifecycle and resource limits.
+- **Evidence must agree:** native input, DOM state, and a fresh screenshot come from the same runtime instead of separate replay paths.
+- **The harness should stay replaceable:** ordered JSONL works with any model, agent loop, CI job, or deterministic test runner.
+- **You need a non-Chromium runtime:** WPE WebKit provides a second engine without shipping another browser-agent framework.
+
+Keep Playwright, CDP, or your current browser stack when you need their browser matrix, extension ecosystem, or an existing signed-in Chrome profile. Jet Browser does not attach to daily Chrome and does not include a model or agent.
+
+[Run the verified smoke test →](#2-run-the-verified-standalone-flow) · [See the protocol →](#3-embed-the-runtime-boundary)
+
 ## Reproducible runtime benchmark
 
 Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of active memory—**72.7% lower ready time** and **33.2% lower memory** than the next result. [Method](./docs/benchmarks.md) · [Raw data](./benchmarks/results/runtime-2026-10-07.json)

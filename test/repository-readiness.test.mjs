@@ -16,6 +16,28 @@ test('public README has portable links and no private machine paths', async () =
   for (const path of ['docs/agent-tools.md', 'docs/architecture.md', 'docs/benchmarks.md', 'docs/comparison.md', 'docs/demo.md', 'Dockerfile.standalone', 'scripts/standalone-smoke.mjs', 'sdk/tools.mjs']) await access(resolve(root, path));
 });
 
+test('public README explains product fit before asking readers to study benchmarks', async () => {
+  const readme = await readFile(resolve(root, 'README.md'), 'utf8');
+  const productFit = readme.indexOf('## Pick Jet Browser when');
+  const benchmark = readme.indexOf('## Reproducible runtime benchmark');
+  const quickStart = readme.indexOf('## Quick start');
+
+  assert.ok(productFit > 0 && productFit < benchmark);
+  assert.ok(benchmark < quickStart);
+
+  const productFitSection = readme.slice(productFit, benchmark);
+  const fragments = [...productFitSection.matchAll(/\[[^\]]+\]\((#[^)]+)\)/g)].map(([, fragment]) => fragment.slice(1));
+  const headingSlugs = new Set([...readme.matchAll(/^#{1,6}\s+(.+)$/gm)].map(([, heading]) => heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')));
+
+  assert.equal(fragments.length, 2);
+  for (const fragment of fragments) assert.ok(headingSlugs.has(fragment), `Missing README heading for #${fragment}`);
+});
+
 test('Simplified Chinese README keeps the benchmark and agent verification path upfront', async () => {
   const readme = await readFile(resolve(root, 'README.zh-CN.md'), 'utf8');
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
