@@ -41,6 +41,7 @@ test('verification pins the image and accepts complete smoke evidence', async ()
   assert.equal(options.image, JET_BROWSER_IMAGE);
   assert.equal(options.docker, 'docker');
   assert.equal(options.noBuild, true);
+  assert.equal(options.startupTimeoutMs, 45_000);
   assert.equal(options.environment.JET_BROWSER_IMAGE, JET_BROWSER_IMAGE);
   assert.equal(options.environment.DOCKER, 'docker');
   assert.equal(options.environment.DOCKER_DEFAULT_PLATFORM, 'linux/amd64');

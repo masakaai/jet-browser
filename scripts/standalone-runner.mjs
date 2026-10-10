@@ -149,6 +149,7 @@ export async function runStandaloneSmoke({
   containerName = `jet-browser-smoke-${randomUUID()}`,
   terminationGraceMs = 2_000,
   cleanupTimeoutMs = 10_000,
+  startupTimeoutMs = 20_000,
 } = {}) {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/.test(containerName)) {
     throw new Error('Invalid Jet Browser smoke container name');
@@ -158,6 +159,9 @@ export async function runStandaloneSmoke({
   }
   if (!Number.isInteger(cleanupTimeoutMs) || cleanupTimeoutMs < 1 || cleanupTimeoutMs > 60_000) {
     throw new Error('Invalid Jet Browser cleanup timeout');
+  }
+  if (!Number.isInteger(startupTimeoutMs) || startupTimeoutMs < 1 || startupTimeoutMs > 120_000) {
+    throw new Error('Invalid Jet Browser startup timeout');
   }
   if (signal?.aborted) throw cancellationError(signal);
 
@@ -270,7 +274,7 @@ export async function runStandaloneSmoke({
   observedCompletion.catch(() => {});
 
   const target = 'http://127.0.0.1:8080/';
-  const send = command => new Promise((resolvePromise, reject) => {
+  const send = (command, responseTimeoutMs = 20_000) => new Promise((resolvePromise, reject) => {
     const op = command.op;
     if (completionSettled) {
       reject(completionFailure || markFatal(Error(`Standalone browser exited before ${op}`)));
@@ -280,7 +284,7 @@ export async function runStandaloneSmoke({
       const index = responseWaiters.indexOf(waiter);
       if (index >= 0) responseWaiters.splice(index, 1);
       reject(Error(`${op}: browser response timed out`));
-    }, 20_000);
+    }, responseTimeoutMs);
     const waiter = {
       op,
       resolve: value => { clearTimeout(timer); lastCompletedOp = op; resolvePromise(value); },
@@ -300,7 +304,7 @@ export async function runStandaloneSmoke({
   let screenshotBytes;
   let primaryError;
   try {
-    await send({ op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' });
+    await send({ op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' }, startupTimeoutMs);
     await send({ op: 'navigate', url: target });
     await waitForFixtureDocument(send, target);
     const snapshot = await send({ op: 'snapshot' });

@@ -42,9 +42,10 @@ if (args[0] === 'run' && mode === 'cancel') {
       process.stdout.write(JSON.stringify({ok:true,value:{}})+'\\n');
     }
   });
-} else if (args[0] === 'run' && mode === 'success') {
+} else if (args[0] === 'run' && (mode === 'success' || mode === 'slow-startup')) {
   process.stdin.setEncoding('utf8');
   let buffer = '';
+  let operations = 0;
   process.stdin.on('data', chunk => {
     buffer += chunk;
     for (;;) {
@@ -52,12 +53,15 @@ if (args[0] === 'run' && mode === 'cancel') {
       if (newline < 0) break;
       const command = JSON.parse(buffer.slice(0, newline));
       buffer = buffer.slice(newline + 1);
+      operations += 1;
       let value = {};
       if (command.op === 'document_state') value = {url:'http://127.0.0.1:8080/',readyState:'complete'};
       if (command.op === 'snapshot') value = {url:'http://127.0.0.1:8080/',title:'Jet Browser Ready'};
       if (command.op === 'evaluate') value = {result:{value:{value:'open-source runtime',result:'open-source runtime'}}};
       if (command.op === 'screenshot') value = Buffer.concat([Buffer.from([137,80,78,71,13,10,26,10]),Buffer.alloc(1100)]).toString('base64');
-      process.stdout.write(JSON.stringify({ok:true,value})+'\\n');
+      const respond = () => process.stdout.write(JSON.stringify({ok:true,value})+'\\n');
+      if (mode === 'slow-startup' && operations === 1) setTimeout(respond, 80);
+      else respond();
       if (command.op === 'close') setTimeout(() => process.exit(0), 10);
     }
   });
@@ -145,6 +149,40 @@ test('standalone runner preserves the complete native-input and PNG evidence flo
       screenshotBytes: 1108,
     });
     await waitForText(log, /"rm","-f","jet-browser-smoke-success-test"/);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('standalone startup timeout is configurable for a cold image pull', { timeout: 10_000 }, async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'jet-browser-runner-'));
+  const docker = await createFakeDocker(directory);
+  const log = join(directory, 'docker.log');
+  const baseOptions = {
+    root: repositoryRoot,
+    image: 'example.invalid/jet-browser@sha256:test',
+    docker,
+    noBuild: true,
+    environment: { ...process.env, FAKE_DOCKER_LOG: log, FAKE_DOCKER_MODE: 'slow-startup' },
+    terminationGraceMs: 50,
+    cleanupTimeoutMs: 500,
+  };
+  try {
+    await assert.rejects(
+      runStandaloneSmoke({
+        ...baseOptions,
+        containerName: 'jet-browser-smoke-startup-timeout-test',
+        startupTimeoutMs: 50,
+      }),
+      /create: browser response timed out/,
+    );
+
+    const result = await runStandaloneSmoke({
+      ...baseOptions,
+      containerName: 'jet-browser-smoke-cold-pull-test',
+      startupTimeoutMs: 200,
+    });
+    assert.equal(result.status, 'passed');
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
