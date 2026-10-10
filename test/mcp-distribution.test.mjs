@@ -73,3 +73,30 @@ test('README Cursor install link preserves the reviewed MCP runtime boundary', a
     ],
   });
 });
+
+test('README VS Code install link preserves the reviewed MCP runtime boundary', async () => {
+  const [readme, packageText] = await Promise.all([
+    read('README.md'),
+    read('package.json'),
+  ]);
+  const packageJson = JSON.parse(packageText);
+  const link = readme.match(/https:\/\/insiders\.vscode\.dev\/redirect\?url=vscode%3Amcp%2Finstall%3F[^\s)]+/)?.[0];
+
+  assert.ok(link, 'README must include the Jet Browser VS Code install link');
+  const redirectUrl = new URL(link);
+  assert.equal(redirectUrl.origin, 'https://insiders.vscode.dev');
+  assert.equal(redirectUrl.pathname, '/redirect');
+
+  const installUri = redirectUrl.searchParams.get('url');
+  assert.ok(installUri?.startsWith('vscode:mcp/install?'));
+  const config = JSON.parse(decodeURIComponent(installUri.slice('vscode:mcp/install?'.length)));
+  assert.deepEqual(config, {
+    name: 'jet-browser',
+    command: 'docker',
+    args: [
+      'run', '--rm', '-i', '--platform=linux/amd64', '--network=none',
+      '--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock',
+      `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`,
+    ],
+  });
+});
