@@ -24,6 +24,7 @@ if (args[0] === 'run' && mode === 'cancel') {
     appendFileSync(log, JSON.stringify({signal:'SIGTERM',pid:process.pid})+'\\n');
     process.exit(143);
   });
+  appendFileSync(log, JSON.stringify({ready:true,pid:process.pid})+'\\n');
   process.stdin.resume();
   setInterval(() => {}, 1000);
 } else if (args[0] === 'run' && mode === 'exit-readiness') {
@@ -104,7 +105,7 @@ test('standalone cancellation terminates Docker and removes its named container'
       containerName,
       terminationGraceMs: 100,
     });
-    const initialLog = await waitForText(log, /"run"/);
+    const initialLog = await waitForText(log, /"ready":true/);
     const runRecord = initialLog.trim().split('\n').map(JSON.parse).find(record => record.args[0] === 'run');
     controller.abort();
     await assert.rejects(verification, error => error.name === 'AbortError');
