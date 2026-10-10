@@ -46,3 +46,30 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.match(smoke, /leftoverVerifierContainers/);
   assert.match(smoke, /type=bind,src=\/var\/run\/docker\.sock,dst=\/var\/run\/docker\.sock/);
 });
+
+test('README Cursor install link preserves the reviewed MCP runtime boundary', async () => {
+  const [readme, packageText] = await Promise.all([
+    read('README.md'),
+    read('package.json'),
+  ]);
+  const packageJson = JSON.parse(packageText);
+  const link = readme.match(/https:\/\/cursor\.com\/link\/mcp\/install\?name=jet-browser&config=[^\s)]+/)?.[0];
+
+  assert.ok(link, 'README must include the Jet Browser Cursor install link');
+  const installUrl = new URL(link);
+  assert.equal(installUrl.origin, 'https://cursor.com');
+  assert.equal(installUrl.pathname, '/link/mcp/install');
+  assert.equal(installUrl.searchParams.get('name'), 'jet-browser');
+
+  const encodedConfig = installUrl.searchParams.get('config');
+  assert.ok(encodedConfig, 'Cursor install link must contain an encoded config');
+  const config = JSON.parse(Buffer.from(encodedConfig, 'base64').toString('utf8'));
+  assert.deepEqual(config, {
+    command: 'docker',
+    args: [
+      'run', '--rm', '-i', '--platform=linux/amd64', '--network=none',
+      '--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock',
+      `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`,
+    ],
+  });
+});
