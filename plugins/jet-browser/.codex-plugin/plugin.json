@@ -1,6 +1,6 @@
 {
   "name": "jet-browser",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Install, verify, and integrate the lightweight Jet Browser runtime for browser agents.",
   "author": {
     "name": "MASAKA",

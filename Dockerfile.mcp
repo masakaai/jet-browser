@@ -1,0 +1,20 @@
+FROM node:24-alpine
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+RUN apk add --no-cache docker-cli
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+
+COPY integrations/mcp/server.mjs ./integrations/mcp/server.mjs
+COPY scripts/standalone-runner.mjs scripts/standalone-readiness.mjs ./scripts/
+COPY seccomp_profile.json ./seccomp_profile.json
+
+LABEL org.opencontainers.image.source="https://github.com/masakaai/jet-browser" \
+      org.opencontainers.image.description="Bounded MCP verifier for the Jet Browser WPE WebKit runtime" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      io.modelcontextprotocol.server.name="io.github.masakaai/jet-browser"
+
+ENTRYPOINT ["node", "integrations/mcp/server.mjs"]

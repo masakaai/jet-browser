@@ -12,7 +12,30 @@ It is a runtime verifier, not a general browsing server. It does not expose publ
 
 The first verification may pull the public image from GHCR. Browser execution itself uses Docker's `--network=none` boundary. The image is pinned by digest in [`server.mjs`](./server.mjs).
 
-## Install
+## Install from the OCI package
+
+The versioned MCP image starts the stdio server directly. It needs the Docker socket only when `jet_browser_verify` launches the separately isolated WPE WebKit runtime:
+
+~~~json
+{
+  "mcpServers": {
+    "jet-browser": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i", "--platform=linux/amd64", "--network=none",
+        "--mount", "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
+        "ghcr.io/masakaai/jet-browser-mcp:0.8.0"
+      ]
+    }
+  }
+}
+~~~
+
+Docker socket grants host-level control. Configure this local server only for a trusted MCP client. The outer MCP container has networking disabled, and the browser container it launches independently uses `--network=none`, resource limits, reduced capabilities, and deterministic cleanup.
+
+The package metadata for the official MCP Registry is [`server.json`](../../server.json). The OCI image carries the matching `io.modelcontextprotocol.server.name` ownership annotation.
+
+## Install from source
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git

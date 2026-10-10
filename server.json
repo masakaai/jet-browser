@@ -1,0 +1,40 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.masakaai/jet-browser",
+  "title": "Jet Browser Verifier",
+  "description": "Verify an isolated WPE WebKit runtime with native-input, DOM, PNG, and cleanup evidence.",
+  "websiteUrl": "https://masaka-ai.vercel.app/jet-browser/",
+  "repository": {
+    "url": "https://github.com/masakaai/jet-browser",
+    "source": "github",
+    "id": "1397471540",
+    "subfolder": "integrations/mcp"
+  },
+  "version": "0.8.0",
+  "packages": [
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/masakaai/jet-browser-mcp:0.8.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "--platform",
+          "value": "linux/amd64"
+        },
+        {
+          "type": "named",
+          "name": "--network",
+          "value": "none"
+        },
+        {
+          "type": "named",
+          "name": "--mount",
+          "value": "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock"
+        }
+      ]
+    }
+  ]
+}

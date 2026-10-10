@@ -32,8 +32,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build the standalone runtime for Action acceptance
         run: docker build -f Dockerfile.standalone -t jet-browser:ci .
+      - name: Build the MCP verifier image
+        run: docker build -f Dockerfile.mcp -t jet-browser-mcp:ci .
       - name: Exercise the root GitHub Action
         uses: ./
         with:
           image: jet-browser:ci
           pull: 'false'
+      - name: Install MCP smoke-test dependencies
+        run: npm ci
+      - name: Exercise the MCP container entry point
+        run: node scripts/mcp-container-smoke.mjs jet-browser-mcp:ci
