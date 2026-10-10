@@ -87,6 +87,8 @@ MCP clients:
 }
 ~~~
 
+Cursor users can [install this exact configuration in one click](https://cursor.com/link/mcp/install?name=jet-browser&config=eyJjb21tYW5kIjoiZG9ja2VyIiwiYXJncyI6WyJydW4iLCItLXJtIiwiLWkiLCItLXBsYXRmb3JtPWxpbnV4L2FtZDY0IiwiLS1uZXR3b3JrPW5vbmUiLCItLW1vdW50IiwidHlwZT1iaW5kLHNyYz0vdmFyL3J1bi9kb2NrZXIuc29jayxkc3Q9L3Zhci9ydW4vZG9ja2VyLnNvY2siLCJnaGNyLmlvL21hc2FrYWFpL2pldC1icm93c2VyLW1jcDowLjguMCJdfQ==). Cursor opens a review prompt before adding it; the Docker-socket warning below still applies.
+
 The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
 
 The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
