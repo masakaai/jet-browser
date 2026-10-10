@@ -7,7 +7,7 @@ Requires=docker.service
 Type=simple
 EnvironmentFile=/data0/deeptensor_engineers/lvbo/masaka/worker.env
 EnvironmentFile=-/data0/deeptensor_engineers/lvbo/masaka/worker-%i.env
-Environment=MASAKA_WORKER_IMAGE=masaka-jet-browser-wpe:0.7.0
+Environment=MASAKA_WORKER_IMAGE=masaka-jet-browser-wpe:0.8.0
 Environment=WORKER_CAPACITY=1
 Environment=MASAKA_BROWSER_REGION=%i
 Environment=MASAKA_AUTOSCALE_POLL_MS=2500

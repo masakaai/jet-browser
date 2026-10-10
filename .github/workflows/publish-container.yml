@@ -11,6 +11,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  MCP_IMAGE_NAME: ${{ github.repository }}-mcp
 
 jobs:
   publish:
@@ -21,6 +22,7 @@ jobs:
       contents: read
       packages: write
       attestations: write
+      artifact-metadata: write
       id-token: write
     steps:
       - name: Check out the released source
@@ -86,4 +88,41 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+      - name: Derive MCP image tags and labels
+        id: mcp-meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.MCP_IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+          labels: |
+            org.opencontainers.image.title=Jet Browser MCP Verifier
+            org.opencontainers.image.description=Bounded MCP verifier for the Jet Browser WPE WebKit runtime
+            org.opencontainers.image.licenses=Apache-2.0
+            io.modelcontextprotocol.server.name=io.github.masakaai/jet-browser
+
+      - name: Build and publish the MCP verifier image
+        id: mcp-push
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./Dockerfile.mcp
+          platforms: linux/amd64
+          pull: true
+          push: true
+          tags: ${{ steps.mcp-meta.outputs.tags }}
+          labels: ${{ steps.mcp-meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest the MCP verifier image digest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.MCP_IMAGE_NAME }}
+          subject-digest: ${{ steps.mcp-push.outputs.digest }}
           push-to-registry: true

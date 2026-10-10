@@ -75,8 +75,12 @@ MCP clients:
 {
   "mcpServers": {
     "jet-browser": {
-      "command": "node",
-      "args": ["/absolute/path/to/jet-browser/integrations/mcp/server.mjs"]
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i", "--platform=linux/amd64", "--network=none",
+        "--mount", "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
+        "ghcr.io/masakaai/jet-browser-mcp:0.8.0"
+      ]
     }
   }
 }
@@ -86,7 +90,7 @@ The Codex and Claude Code paths install the Jet Browser skill, which teaches cod
 
 The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
 
-The [MCP verifier](./integrations/mcp/README.md) exposes the same bounded proof through a local stdio server. It advertises the immutable runtime contract and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command.
+The [MCP verifier](./integrations/mcp/README.md) exposes the same bounded proof through a local stdio server and a versioned OCI package. It advertises the immutable runtime contract and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command. Docker socket grants host-level control, so install it only for a trusted local MCP client.
 
 ### 2. Run the verified standalone flow
 
@@ -95,8 +99,8 @@ Published from a tagged GitHub release, the public `linux/amd64` image carries b
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.7.0
-DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.7.0 npm run standalone:smoke
+docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.8.0
+DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.8.0 npm run standalone:smoke
 ~~~
 
 The published image currently targets `linux/amd64`; ARM hosts need Docker's amd64 emulation for this path. Pin its digest in production. To build and verify the checked-out source for the host architecture instead, run `npm run standalone`.
@@ -123,7 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Jet Browser
-        uses: masakaai/jet-browser@v0.7.0
+        uses: masakaai/jet-browser@v0.8.0
 ~~~
 
 The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
@@ -147,7 +151,7 @@ docker run --rm -i --platform=linux/amd64 --network=none --cap-drop=ALL \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
-  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.7.0
+  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.8.0
 ~~~
 
 For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).

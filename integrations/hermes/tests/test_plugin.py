@@ -185,6 +185,9 @@ class VerificationTests(unittest.TestCase):
             "time.sleep(0.5)"
         )
         try:
+            runtime._process.stdin.write(b"{}\n")
+            runtime._process.stdin.flush()
+            self.assertTrue(runtime._selector.select(1.0), "fixture did not publish its oversized response")
             with mock.patch.object(plugin, "_MAX_LINE_BYTES", 64):
                 with self.assertRaisesRegex(RuntimeError, "oversized response"):
                     runtime.call({"op": "snapshot"}, timeout=0.2)
