@@ -23,6 +23,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
   <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
   <a href="./integrations/hermes/README.md">Hermes integration</a> ·
+  <a href="./integrations/mcp/README.md">MCP verifier</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
@@ -68,9 +69,24 @@ hermes plugins install masakaai/jet-browser/integrations/hermes
 hermes plugins enable jet-browser
 ~~~
 
+MCP clients:
+
+~~~json
+{
+  "mcpServers": {
+    "jet-browser": {
+      "command": "node",
+      "args": ["/absolute/path/to/jet-browser/integrations/mcp/server.mjs"]
+    }
+  }
+}
+~~~
+
 The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
 
 The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
+
+The [MCP verifier](./integrations/mcp/README.md) exposes the same bounded proof through a local stdio server. It advertises the immutable runtime contract and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command.
 
 ### 2. Run the verified standalone flow
 
