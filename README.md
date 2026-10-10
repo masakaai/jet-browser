@@ -22,6 +22,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="https://masaka-ai.vercel.app/jet-browser/">Product overview</a> ·
   <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
   <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
+  <a href="https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.masakaai%2Fjet-browser">Official MCP Registry</a> ·
   <a href="./integrations/hermes/README.md">Hermes integration</a> ·
   <a href="./integrations/mcp/README.md">MCP verifier</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
@@ -90,7 +91,7 @@ The Codex and Claude Code paths install the Jet Browser skill, which teaches cod
 
 The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
 
-The [MCP verifier](./integrations/mcp/README.md) exposes the same bounded proof through a local stdio server and a versioned OCI package. It advertises the immutable runtime contract and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command. Docker socket grants host-level control, so install it only for a trusted local MCP client.
+The [MCP verifier](./integrations/mcp/README.md) is published as [`io.github.masakaai/jet-browser`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.masakaai%2Fjet-browser) in the official MCP Registry. It exposes the same bounded proof through a local stdio server and a versioned OCI package, advertises the immutable runtime contract, and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command. Docker socket grants host-level control, so install it only for a trusted local MCP client.
 
 ### 2. Run the verified standalone flow
 
