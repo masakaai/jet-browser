@@ -1,0 +1,8 @@
+name: jet-browser
+version: 0.1.0
+description: "Run Jet Browser's network-isolated WPE WebKit acceptance check from Hermes."
+author: MASAKA (IRONICBo)
+requires_hermes: ">=0.21.6"
+hooks: []
+provides_tools:
+  - jet_browser_verify
