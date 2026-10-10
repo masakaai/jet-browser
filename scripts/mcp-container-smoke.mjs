@@ -38,7 +38,11 @@ try {
   assert.match(response.content[0].text, /No public-web navigation/);
 
   const verification = await client.callTool({ name: 'jet_browser_verify', arguments: {} });
-  assert.equal(verification.isError, undefined);
+  assert.equal(
+    verification.isError,
+    undefined,
+    `jet_browser_verify failed: ${JSON.stringify(verification.content)}`,
+  );
   assert.equal(verification.structuredContent.status, 'passed');
   assert.equal(verification.structuredContent.network, 'disabled');
   assert.equal(verification.structuredContent.title, 'Jet Browser Ready');
