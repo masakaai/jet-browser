@@ -47,16 +47,19 @@ test('public project presentation is independent from a hosted platform', async 
 });
 
 test('standalone image has no hosted control-plane dependency', async () => {
-  for (const path of ['Dockerfile.standalone', 'standalone-entrypoint.sh', 'scripts/standalone-smoke.mjs', 'scripts/standalone-readiness.mjs', 'scripts/standalone-fixture.rs', 'seccomp_profile.json', 'LICENSE']) {
+  for (const path of ['Dockerfile.standalone', 'standalone-entrypoint.sh', 'scripts/standalone-smoke.mjs', 'scripts/standalone-runner.mjs', 'scripts/standalone-readiness.mjs', 'scripts/standalone-fixture.rs', 'seccomp_profile.json', 'LICENSE']) {
     await access(resolve(root, path));
   }
   const dockerfile = await read('Dockerfile.standalone');
   const entrypoint = await read('standalone-entrypoint.sh');
-  const smoke = await read('scripts/standalone-smoke.mjs');
+  const smokeWrapper = await read('scripts/standalone-smoke.mjs');
+  const smoke = await read('scripts/standalone-runner.mjs');
   const readiness = await read('scripts/standalone-readiness.mjs');
   assert.doesNotMatch(dockerfile, /npm ci|@supabase|cloudflared|MASAKA_/i);
   assert.doesNotMatch(entrypoint, /SUPABASE|DATABASE|API_KEY|cloudflared/i);
   assert.match(entrypoint, /jet-wpe/);
+  assert.match(smokeWrapper, /runStandaloneSmoke/);
+  assert.match(smokeWrapper, /standalone-runner\.mjs/);
   assert.match(smoke, /Dockerfile\.standalone/);
   assert.match(smoke, /systempaths=unconfined/);
   assert.match(smoke, /apparmor=unconfined/);

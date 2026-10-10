@@ -14,6 +14,7 @@ export async function waitForFixtureDocument(send, target, {
         return lastState;
       }
     } catch (error) {
+      if (error?.jetBrowserFatal) throw error;
       lastError = error;
     }
     if (attempt + 1 < attempts) await pause(intervalMs);
