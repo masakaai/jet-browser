@@ -87,6 +87,10 @@ MCP clients:
 }
 ~~~
 
+[![Install Jet Browser in VS Code](https://img.shields.io/badge/VS_Code-Install_Jet_Browser-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522jet-browser%2522%252C%2522command%2522%253A%2522docker%2522%252C%2522args%2522%253A%255B%2522run%2522%252C%2522--rm%2522%252C%2522-i%2522%252C%2522--platform%253Dlinux%252Famd64%2522%252C%2522--network%253Dnone%2522%252C%2522--mount%2522%252C%2522type%253Dbind%252Csrc%253D%252Fvar%252Frun%252Fdocker.sock%252Cdst%253D%252Fvar%252Frun%252Fdocker.sock%2522%252C%2522ghcr.io%252Fmasakaai%252Fjet-browser-mcp%253A0.8.0%2522%255D%257D)
+
+VS Code opens a review prompt before adding the server. The link uses VS Code's official MCP install URI and preserves the same pinned image, disabled network, and Docker-socket boundary shown above.
+
 Cursor users can [install this exact configuration in one click](https://cursor.com/link/mcp/install?name=jet-browser&config=eyJjb21tYW5kIjoiZG9ja2VyIiwiYXJncyI6WyJydW4iLCItLXJtIiwiLWkiLCItLXBsYXRmb3JtPWxpbnV4L2FtZDY0IiwiLS1uZXR3b3JrPW5vbmUiLCItLW1vdW50IiwidHlwZT1iaW5kLHNyYz0vdmFyL3J1bi9kb2NrZXIuc29jayxkc3Q9L3Zhci9ydW4vZG9ja2VyLnNvY2siLCJnaGNyLmlvL21hc2FrYWFpL2pldC1icm93c2VyLW1jcDowLjguMCJdfQ==). Cursor opens a review prompt before adding it; the Docker-socket warning below still applies.
 
 The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
