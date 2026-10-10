@@ -126,7 +126,7 @@ function toolResult(value) {
 
 export function createJetBrowserMcpServer() {
   const server = new McpServer(
-    { name: 'jet-browser-verifier', version: '0.6.7' },
+    { name: 'jet-browser-verifier', version: '0.7.0' },
     { capabilities: { tools: {} } },
   );
 

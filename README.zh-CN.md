@@ -57,8 +57,8 @@ claude plugin marketplace add masakaai/jet-browser && claude plugin install jet-
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.6.7
-DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.6.7 npm run standalone:smoke
+docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.7.0
+DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.7.0 npm run standalone:smoke
 ~~~
 
 发布镜像目前只提供 `linux/amd64`；ARM 主机需要 Docker 的 amd64 模拟。生产环境应固定镜像 digest。若要按宿主机架构构建并验证当前检出的源码，运行 `npm run standalone`。
@@ -85,7 +85,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Jet Browser
-        uses: masakaai/jet-browser@v0.6.7
+        uses: masakaai/jet-browser@v0.7.0
 ~~~
 
 ### 3. 接入运行时边界

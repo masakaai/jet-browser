@@ -95,8 +95,8 @@ Published from a tagged GitHub release, the public `linux/amd64` image carries b
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.6.7
-DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.6.7 npm run standalone:smoke
+docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.7.0
+DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.7.0 npm run standalone:smoke
 ~~~
 
 The published image currently targets `linux/amd64`; ARM hosts need Docker's amd64 emulation for this path. Pin its digest in production. To build and verify the checked-out source for the host architecture instead, run `npm run standalone`.
@@ -123,7 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Jet Browser
-        uses: masakaai/jet-browser@v0.6.7
+        uses: masakaai/jet-browser@v0.7.0
 ~~~
 
 The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
@@ -147,7 +147,7 @@ docker run --rm -i --platform=linux/amd64 --network=none --cap-drop=ALL \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
-  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.6.7
+  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.7.0
 ~~~
 
 For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).
