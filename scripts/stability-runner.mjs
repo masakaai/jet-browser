@@ -446,15 +446,25 @@ export async function runStabilityBenchmark({
       }
 
       stage = 'page-cleanup';
-      for (let handleIndex = handles.length - 1; handleIndex >= 1; handleIndex -= 1) {
+      let retainedHandle = primaryHandle;
+      if (cycleIndex + 1 < churnCycles) {
+        const opened = evaluationValue(await protocol.send({ op: 'new_window', kind: 'tab' }));
+        retainedHandle = opened?.handle;
+        if (typeof retainedHandle !== 'string' || !retainedHandle) {
+          throw Error('Replacement browser page did not return a handle');
+        }
+      }
+      const firstHandleToClose = retainedHandle === primaryHandle ? 1 : 0;
+      for (let handleIndex = handles.length - 1; handleIndex >= firstHandleToClose; handleIndex -= 1) {
         await protocol.send({ op: 'switch_window', handle: handles[handleIndex] });
         await protocol.send({ op: 'close_window' });
       }
-      await protocol.send({ op: 'switch_window', handle: primaryHandle });
+      await protocol.send({ op: 'switch_window', handle: retainedHandle });
       const remaining = evaluationValue(await protocol.send({ op: 'window_handles' }));
-      if (!Array.isArray(remaining) || remaining.length !== 1 || remaining[0] !== primaryHandle) {
+      if (!Array.isArray(remaining) || remaining.length !== 1 || remaining[0] !== retainedHandle) {
         throw Error('Extra browser pages remained after cleanup');
       }
+      primaryHandle = retainedHandle;
       report.cleanup.extraPagesClosed = true;
       await enqueueSample('page-cleanup');
       assertHealthy();

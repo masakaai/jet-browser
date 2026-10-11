@@ -37,7 +37,7 @@ Each page receives a unique marker on a deterministic loopback fixture. The runn
 5. captures a semantic snapshot containing the same marker;
 6. captures and hashes a non-empty PNG;
 7. revisits every page and fails if any marker belongs to another page; and
-8. closes every extra page and verifies that only the primary page remains.
+8. keeps a fresh active page between churn cycles, closes every page from the completed cycle, and verifies that exactly one page remains.
 
 Memory and process health are sampled at a fixed interval and after page cleanup. Browser, WebDriver, and supervisor liveness are reported separately. A missing role fails the run instead of being collapsed into a generic container error.
 

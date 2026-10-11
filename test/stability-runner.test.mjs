@@ -97,7 +97,7 @@ function options(directory, docker, mode, output) {
   return {
     durationSeconds: 5,
     pageCount: 2,
-    churnCycles: 1,
+    churnCycles: 2,
     sampleIntervalMs: 60_000,
     output,
     image: 'jet-browser:test',
@@ -117,8 +117,9 @@ test('stability runner preserves ordered page and cleanup evidence', { timeout: 
     const result = await runStabilityBenchmark(options(directory, docker, 'success', output));
     assert.equal(result.outputPath, output);
     assert.equal(result.report.status, 'passed');
-    assert.equal(result.report.samples.cycles.length, 1);
+    assert.equal(result.report.samples.cycles.length, 2);
     assert.equal(result.report.samples.cycles[0].pages.length, 2);
+    assert.equal(result.report.samples.cycles[1].pages.length, 2);
     assert.notEqual(
       result.report.samples.cycles[0].pages[0].screenshotSha256,
       result.report.samples.cycles[0].pages[1].screenshotSha256,
