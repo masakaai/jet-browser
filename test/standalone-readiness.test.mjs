@@ -39,10 +39,11 @@ test('public project presentation is independent from a hosted platform', async 
     assert.match(value, /docs\/assets\/runtime-benchmark\.svg/);
     assert.match(value, /benchmarks\/results\/runtime-2026-10-07\.json/);
     assert.doesNotMatch(value, /7\/7|p50/i);
-    assert.match(value, /npm run standalone/);
+    assert.match(value, /curl -fsSL https:\/\/raw\.githubusercontent\.com\/masakaai\/jet-browser\/main\/scripts\/try-jet\.sh \| sh/);
   }
   assert.match(readmes[0], /docs\/assets\/jet-browser-banner\.svg/);
   assert.match(readmes[0], /Dockerfile\.standalone/);
+  assert.match(readmes[0], /npm run standalone/);
   assert.match(readmes[0], /No account, API key, model, database, or hosted control plane is required/);
 });
 

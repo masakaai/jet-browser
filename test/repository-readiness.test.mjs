@@ -55,6 +55,35 @@ test('Simplified Chinese README keeps the benchmark and agent verification path 
   assert.match(readme, new RegExp(`ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
 });
 
+test('localized READMEs lead with the Docker-only one-command proof', async () => {
+  const quickStartHeadings = new Map([
+    ['de', '## Schnellstart'],
+    ['es', '## Inicio rápido'],
+    ['fr', '## Démarrage rapide'],
+    ['ja', '## クイックスタート'],
+    ['ko', '## 빠른 시작'],
+    ['pt-BR', '## Início rápido'],
+    ['zh-CN', '## 快速开始'],
+  ]);
+  const command = 'curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh';
+  const clone = 'git clone https://github.com/masakaai/jet-browser.git';
+
+  for (const [locale, heading] of quickStartHeadings) {
+    const readme = await readFile(resolve(root, `README.${locale}.md`), 'utf8');
+    const quickStart = readme.indexOf(heading);
+    const commandIndex = readme.indexOf(command, quickStart);
+    const cloneIndex = readme.indexOf(clone, quickStart);
+    const proof = readme.slice(commandIndex, commandIndex + 1_500);
+
+    assert.ok(quickStart > 0, `${locale} README is missing its quick-start heading`);
+    assert.ok(commandIndex > quickStart, `${locale} README does not lead with the one-command proof`);
+    assert.ok(cloneIndex === -1 || commandIndex < cloneIndex, `${locale} README asks readers to clone before the one-command proof`);
+    assert.match(readme.slice(quickStart, commandIndex), /Docker/);
+    assert.match(proof, /\[.+\]\(\.\/scripts\/try-jet\.sh\)/);
+    assert.match(proof, /linux\/amd64/);
+  }
+});
+
 test('issue routing separates open-source discussion from managed support', async () => {
   const config = await readFile(resolve(root, '.github/ISSUE_TEMPLATE/config.yml'), 'utf8');
   const contacts = new Map([...config.matchAll(/^\s+- name: (.+)\n\s+url: (.+)\n\s+about: (.+)$/gm)]

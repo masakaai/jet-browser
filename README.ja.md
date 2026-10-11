@@ -10,13 +10,13 @@ Jet Browser は実際の WPE WebKit ブラウザーと Rust WebDriver ブリッ�
 
 ## クイックスタート
 
-Docker と Node.js 24+ が必要です。ネットワークを無効化したコンテナー内で、作成、ローカルページの表示、ネイティブ入力、DOM 検証、スクリーンショット、終了までを実行します。
+ランタイムの検証に必要なのは Docker だけです。clone、Node.js、アカウント、API キー、ブラウザーの外向きネットワークは不要です。
 
 ~~~bash
-git clone https://github.com/masakaai/jet-browser.git
-cd jet-browser
-npm run standalone
+curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
+
+[確認可能なスクリプト](./scripts/try-jet.sh)は、リリースに固定された seccomp ポリシーをダウンロードして SHA-256 を検証し、変更不可能な digest で attest 済みの `linux/amd64` イメージを取得します。そのうえで、ブラウザー起動、ネイティブ入力、DOM 状態、PNG キャプチャを検証します。ネットワークを無効化した使い捨てのリソース制限コンテナーを使い、Docker ソケットやホストディレクトリはマウントしません。ARM ホストでは現在 Docker の amd64 エミュレーションが必要です。
 
 ## 再現可能なランタイムベンチマーク
 

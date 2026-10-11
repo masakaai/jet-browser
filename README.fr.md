@@ -10,13 +10,13 @@ Aucun compte, aucune clé API, aucune base de données ni aucun plan de contrôl
 
 ## Démarrage rapide
 
-Docker et Node.js 24+ sont nécessaires. Le test exécute réellement la création du navigateur, une page locale, la saisie native, la validation du DOM, une capture et la fermeture dans un conteneur sans réseau.
+Docker suffit pour vérifier le moteur : aucun clonage, Node.js, compte, clé API ou accès réseau sortant du navigateur n’est nécessaire :
 
 ~~~bash
-git clone https://github.com/masakaai/jet-browser.git
-cd jet-browser
-npm run standalone
+curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
+
+Le [script vérifiable](./scripts/try-jet.sh) télécharge la politique seccomp liée à la version, vérifie son SHA-256, récupère l’image attestée `linux/amd64` par digest immuable et teste le démarrage, la saisie native, l’état du DOM et la capture PNG. Il utilise un conteneur jetable, limité en ressources et sans réseau, sans monter le socket Docker ni un répertoire hôte. Les hôtes ARM nécessitent actuellement l’émulation amd64 de Docker.
 
 ## Benchmark reproductible du runtime
 

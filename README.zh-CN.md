@@ -27,14 +27,22 @@ Jet Browser 在 **1,445.25 ms** 内到达已验证页面，活动内存快照中
 将下面这一行粘贴到 Codex、Claude Code 或其他能够读取仓库的编码 Agent。GitHub 代码块自带一键复制按钮。
 
 ~~~text
-为当前仓库从 https://github.com/masakaai/jet-browser 安装或升级 Jet Browser 最新 main。阅读 README.zh-CN.md；当 Codex 或 Claude Code 支持插件命令时使用其中的原生 Marketplace 安装方式，否则将 .agents/skills/jet-browser/SKILL.md 注册为仓库 Skill。确认 Docker 与 Node.js 24+ 可用，运行 npm run standalone，并报告浏览器启动、原生输入、DOM 验证和 PNG 截图是否全部通过。不要连接我的日用 Chrome Profile，也不要启动持久 Chrome daemon。若安装或验证失败，按照 docs/demo.md 排查。
+为当前仓库从 https://github.com/masakaai/jet-browser 安装或升级 Jet Browser 最新 main。阅读 README.zh-CN.md；当 Codex 或 Claude Code 支持插件命令时使用其中的原生 Marketplace 安装方式，否则将 .agents/skills/jet-browser/SKILL.md 注册为仓库 Skill。确认 Docker 可用，先运行 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh，并报告浏览器启动、原生输入、DOM 验证和 PNG 截图是否全部通过。不要连接我的日用 Chrome Profile，也不要启动持久 Chrome daemon。只有从源码构建时才需要 Node.js 24+；若安装或验证失败，按照 docs/demo.md 排查。
 ~~~
 
 ## 快速开始
 
-需要 Docker 与 Node.js 24+。
+### 1. 用一条命令验证运行时
 
-### 1. 安装编码 Agent 插件
+只需要 Docker——无需 clone、Node.js、账号、API Key 或浏览器外网：
+
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
+~~~
+
+[可审查脚本](./scripts/try-jet.sh)会下载与 release 绑定的 seccomp policy、校验 SHA-256、按不可变 digest 拉取带 provenance 的 `linux/amd64` 镜像，并验证浏览器启动、原生输入、DOM 状态与 PNG 截图。它运行一个关闭网络、限制资源的临时容器，不挂载 Docker socket 或宿主机目录。ARM 主机目前需要 Docker 的 amd64 模拟。
+
+### 2. 安装编码 Agent 插件
 
 Codex：
 
@@ -50,7 +58,7 @@ claude plugin marketplace add masakaai/jet-browser && claude plugin install jet-
 
 两种方式都会安装 Jet Browser Skill，指导编码 Agent 检查环境、运行已验证的独立流程、接入带版本的工具 Schema，并保留运行时的安全边界。支持直接发现项目 Skill 的 Agent 也可以使用 [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md)。
 
-### 2. 运行发布版验证流程
+### 3. 运行固定版本验证流程
 
 以下命令会拉取带构建来源证明的 `linux/amd64` 发布镜像，关闭浏览器外网、启动真实 WPE WebKit、打开内部测试页、通过原生输入写入文本、校验 DOM、截取 PNG，并关闭会话。
 
@@ -88,7 +96,7 @@ jobs:
         uses: masakaai/jet-browser@v0.8.0
 ~~~
 
-### 3. 接入运行时边界
+### 4. 接入运行时边界
 
 每一行输入是一条 JSON 命令，每一行输出是一条 JSON 响应。任何能管理子进程或容器的语言都可以监督 Jet，同时让模型与 Agent Harness 保持可替换。
 
