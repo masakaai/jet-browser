@@ -1,0 +1,296 @@
+{
+  "schemaVersion": 1,
+  "kind": "jet-browser-stability",
+  "capturedAt": "2026-10-11T22:50:13.142Z",
+  "status": "passed",
+  "configuration": {
+    "durationSeconds": 10,
+    "pageCount": 3,
+    "churnCycles": 2,
+    "sampleIntervalMs": 1000,
+    "network": "disabled",
+    "image": "jet-browser:ci"
+  },
+  "environment": {
+    "node": "v24.21.0",
+    "platform": "linux",
+    "arch": "x64",
+    "dockerServerVersion": "28.0.4",
+    "imageId": "sha256:e57fa88a1a04340f4a0601bf2ed5405c2d7db98cdb39d7195d049ce581a0ce46",
+    "sourceCommit": "fa58cdec51642b3a03d0500308d4974f83b5bfd8"
+  },
+  "samples": {
+    "cycles": [
+      {
+        "cycle": 1,
+        "status": "passed",
+        "startedAtMs": 1927,
+        "pages": [
+          {
+            "page": 1,
+            "marker": "cycle-1-page-1-d05031c0-ebd6-41d7-b4fe-bb991d743c11",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 16578,
+            "screenshotSha256": "6fd16d479d5424986f67e134b03f849d551cd0750f56a8cfeed73c297a0298cb"
+          },
+          {
+            "page": 2,
+            "marker": "cycle-1-page-2-ba12e910-248b-4ce9-a024-8f49cca76a86",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 16541,
+            "screenshotSha256": "8d0ae6220ba96c2619d6599034360e2bdb340e3f91c8581bd640a2224284340f"
+          },
+          {
+            "page": 3,
+            "marker": "cycle-1-page-3-76554d3a-4b49-412a-b088-5fcdc5b4ab92",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 16730,
+            "screenshotSha256": "2a0142b730b65c2adaec7cafed7f616c8c99cad36b76fff6a579a2fb58899328"
+          }
+        ],
+        "completedAtMs": 6451
+      },
+      {
+        "cycle": 2,
+        "status": "passed",
+        "startedAtMs": 6926,
+        "pages": [
+          {
+            "page": 1,
+            "marker": "cycle-2-page-1-82baa0eb-a830-4540-b896-25a99ef60b36",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 22494,
+            "screenshotSha256": "9395873ff1140859e7370c4a6295b6eb2ee32e2053b0e7b83779a611c0456a18"
+          },
+          {
+            "page": 2,
+            "marker": "cycle-2-page-2-1a0f660c-4c76-453f-90e6-15730c10b3be",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 24296,
+            "screenshotSha256": "330eca03110d989ec921e44517a37067adb16210fc33df9209a596d07bbb7efa"
+          },
+          {
+            "page": 3,
+            "marker": "cycle-2-page-3-59688b2f-695e-415f-a06b-70327bcf875a",
+            "inputVerified": true,
+            "scriptVerified": true,
+            "snapshotVerified": true,
+            "screenshotBytes": 25937,
+            "screenshotSha256": "0619f3b48df8cd5a2bea825b1bfddcf01a7ce5fe8d5634e6fc799dd21211c138"
+          }
+        ],
+        "completedAtMs": 18479
+      }
+    ],
+    "resources": [
+      {
+        "atMs": 1924,
+        "phase": "exercise",
+        "memoryMiB": 216.6,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 4447,
+        "phase": "exercise",
+        "memoryMiB": 317.1,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 6451,
+        "phase": "page-cleanup",
+        "memoryMiB": 317.1,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 8456,
+        "phase": "exercise",
+        "memoryMiB": 634.4,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 10460,
+        "phase": "exercise",
+        "memoryMiB": 334.8,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 12465,
+        "phase": "exercise",
+        "memoryMiB": 335,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 14469,
+        "phase": "exercise",
+        "memoryMiB": 335,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 16474,
+        "phase": "exercise",
+        "memoryMiB": 334.7,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 18479,
+        "phase": "page-cleanup",
+        "memoryMiB": 317.3,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 20483,
+        "phase": "exercise",
+        "memoryMiB": 316.7,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 22486,
+        "phase": "exercise",
+        "memoryMiB": 316.7,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 24490,
+        "phase": "exercise",
+        "memoryMiB": 316.6,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 26493,
+        "phase": "exercise",
+        "memoryMiB": 316.5,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 28498,
+        "phase": "exercise",
+        "memoryMiB": 316.5,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 30502,
+        "phase": "exercise",
+        "memoryMiB": 316.4,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 32507,
+        "phase": "exercise",
+        "memoryMiB": 316.4,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 34511,
+        "phase": "exercise",
+        "memoryMiB": 316.3,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 36515,
+        "phase": "exercise",
+        "memoryMiB": 316,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      },
+      {
+        "atMs": 38520,
+        "phase": "exercise",
+        "memoryMiB": 316,
+        "roles": {
+          "browser": true,
+          "driver": true,
+          "supervisor": true
+        }
+      }
+    ]
+  },
+  "failures": [],
+  "cleanup": {
+    "extraPagesClosed": true,
+    "sessionClosed": true,
+    "containerRemoved": true
+  },
+  "soakProbeVerified": true,
+  "soakDurationMs": 16561
+}

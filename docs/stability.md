@@ -55,3 +55,11 @@ The JSON artifact uses `schemaVersion: 1` and includes:
 The command exits non-zero when any invariant fails. It still attempts to close the browser session, remove the container, validate the failure report, and preserve that report at the requested output path. Invalid CLI arguments fail before starting Docker.
 
 GitHub CI runs the default scenario against the image built from each pull request and retains the JSON artifact for 14 days. A checked-in raw sample should only be added after the method and its environment identity have been reviewed; CI artifacts are not silently promoted into published benchmark claims.
+
+## Reviewed raw sample
+
+The first reviewed [AMD64 raw report](../benchmarks/results/stability-2026-10-11-amd64.json) is the byte-identical artifact from [GitHub Actions run 38181869835](https://github.com/masakaai/jet-browser/actions/runs/38181869835), captured at `2026-10-11T22:50:13.142Z`. It identifies source commit `fa58cdec51642b3a03d0500308d4974f83b5bfd8`, Docker 28.0.4, Node.js 24.21.0, and image ID `sha256:e57fa88a1a04340f4a0601bf2ed5405c2d7db98cdb39d7195d049ce581a0ce46`.
+
+That one run completed two churn cycles and verified six of six pages with six distinct screenshot hashes. All 19 resource samples observed the browser, WebDriver, and supervisor; memory ranged from 216.6 to 634.4 MiB and the two post-cleanup samples were 317.1 and 317.3 MiB. Page, session, and container cleanup all completed. Its artifact SHA-256 is `5398dfbbcfeca8648a309a55dc9e8fc381c3ab513de3cee3c65d07a85a6664dc`.
+
+This is one deterministic acceptance sample, not a claim about unlimited uptime, public-site success, or memory behavior on other hardware. Use a longer duration and more churn cycles to characterize a deployment-specific operating envelope.

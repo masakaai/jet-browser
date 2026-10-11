@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import {
   parseStabilityArguments,
   parseDockerMemoryMiB,
@@ -193,4 +194,40 @@ test('stability report rejects missing evidence and inconsistent outcomes', () =
   invalidCommit.environment.sourceCommit = 'main';
   cases.push(invalidCommit);
   for (const report of cases) assert.throws(() => validateStabilityReport(report));
+});
+
+test('published AMD64 stability sample preserves the reviewed CI evidence', async () => {
+  const report = JSON.parse(await readFile(new URL('../benchmarks/results/stability-2026-10-11-amd64.json', import.meta.url), 'utf8'));
+  validateStabilityReport(report);
+  const pages = report.samples.cycles.flatMap(cycle => cycle.pages);
+  const cleanupMemory = report.samples.resources
+    .filter(sample => sample.phase === 'page-cleanup')
+    .map(sample => sample.memoryMiB);
+  assert.equal(report.status, 'passed');
+  assert.equal(report.environment.sourceCommit, 'fa58cdec51642b3a03d0500308d4974f83b5bfd8');
+  assert.deepEqual({
+    durationSeconds: report.configuration.durationSeconds,
+    pageCount: report.configuration.pageCount,
+    churnCycles: report.configuration.churnCycles,
+    sampleIntervalMs: report.configuration.sampleIntervalMs,
+    network: report.configuration.network,
+  }, {
+    durationSeconds: 10,
+    pageCount: 3,
+    churnCycles: 2,
+    sampleIntervalMs: 1000,
+    network: 'disabled',
+  });
+  assert.equal(pages.length, 6);
+  assert.equal(new Set(pages.map(page => page.marker)).size, 6);
+  assert.equal(new Set(pages.map(page => page.screenshotSha256)).size, 6);
+  assert.equal(report.samples.resources.length, 19);
+  assert.ok(report.samples.resources.every(sample => Object.values(sample.roles).every(Boolean)));
+  assert.deepEqual(cleanupMemory, [317.1, 317.3]);
+  assert.deepEqual(report.failures, []);
+  assert.deepEqual(report.cleanup, {
+    extraPagesClosed: true,
+    sessionClosed: true,
+    containerRemoved: true,
+  });
 });
