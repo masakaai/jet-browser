@@ -48,8 +48,8 @@ test('release benchmark records the same public image on native AMD64 and ARM64 
 test('release measurement uses the session strategy proven by the public smoke path', async () => {
   const suite = await read('benchmarks/runtime-suite.mjs');
 
-  assert.match(suite, /page_load_strategy: 'normal'/);
-  assert.doesNotMatch(suite, /page_load_strategy: 'eager'/);
+  assert.match(suite, /page_load_strategy: 'none'/);
+  assert.doesNotMatch(suite, /page_load_strategy: '(?:eager|normal)'/);
   assert.match(suite, /\[\s*'run', '--rm', '-i', '--name', name, '--network=none'/);
   assert.doesNotMatch(suite, /\['start', '-a', '-i', name\]/);
 });
