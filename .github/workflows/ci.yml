@@ -45,3 +45,37 @@ jobs:
         run: npm ci
       - name: Exercise the MCP container entry point
         run: node scripts/mcp-container-smoke.mjs jet-browser-mcp:ci
+
+  arm64-standalone:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - name: Confirm the native ARM64 runner
+        run: |
+          test "$(uname -m)" = aarch64
+          test "$(docker info --format '{{.Architecture}}')" = aarch64
+      - name: Install MCP smoke-test dependencies
+        run: npm ci
+      - name: Build the native ARM64 runtime
+        run: |
+          docker build -f Dockerfile.standalone -t jet-browser:arm64 .
+          test "$(docker image inspect jet-browser:arm64 --format '{{.Architecture}}')" = arm64
+      - name: Exercise the native ARM64 runtime through the root Action
+        uses: ./
+        with:
+          image: jet-browser:arm64
+          pull: 'false'
+          platform: linux/arm64
+      - name: Build the native ARM64 MCP verifier
+        run: |
+          docker build -f Dockerfile.mcp -t jet-browser-mcp:arm64 \
+            --build-arg JET_BROWSER_RUNTIME_IMAGE=jet-browser:arm64 \
+            --build-arg JET_BROWSER_RUNTIME_PLATFORM=linux/arm64 .
+          test "$(docker image inspect jet-browser-mcp:arm64 --format '{{.Architecture}}')" = arm64
+      - name: Exercise both MCP tools against the native ARM64 runtime
+        run: node scripts/mcp-container-smoke.mjs jet-browser-mcp:arm64 linux/arm64 jet-browser:arm64
