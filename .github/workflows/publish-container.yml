@@ -8,25 +8,15 @@ concurrency:
   group: publish-container-${{ github.event.release.tag_name }}
   cancel-in-progress: false
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
-  MCP_IMAGE_NAME: ${{ github.repository }}-mcp
-
 jobs:
-  publish:
+  verify-release:
     if: github.event.release.prerelease == false
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: write
-      attestations: write
-      artifact-metadata: write
-      id-token: write
     steps:
       - name: Check out the released source
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.sha }}
           persist-credentials: false
@@ -44,85 +34,146 @@ jobs:
           package_version="$(node -p "require('./package.json').version")"
           test "$RELEASE_TAG" = "v$package_version"
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ${{ env.REGISTRY }}
+  publish-runtime:
+    name: Publish native runtime images
+    needs: verify-release
+    uses: docker/github-builder/.github/workflows/build.yml@58cb9f5b71b1836d6f690c1e95effdeb9b98cb8a # v1
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      artifact-metadata: write
+      id-token: write
+    with:
+      output: image
+      push: true
+      platforms: linux/amd64,linux/arm64
+      file: ./Dockerfile.standalone
+      cache: true
+      cache-scope: runtime
+      cache-mode: max
+      sbom: true
+      sign: 'true'
+      meta-images: ghcr.io/${{ github.repository }}
+      meta-flavor: latest=false
+      meta-tags: |
+        type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+      set-meta-labels: true
+      meta-labels: |
+        org.opencontainers.image.title=Jet Browser
+        org.opencontainers.image.description=Portable WPE WebKit runtime for AI agents
+        org.opencontainers.image.licenses=Apache-2.0
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Derive image tags and labels
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
-          labels: |
-            org.opencontainers.image.title=Jet Browser
-            org.opencontainers.image.description=Portable WPE WebKit runtime for AI agents
-            org.opencontainers.image.licenses=Apache-2.0
+  publish-mcp:
+    name: Publish native MCP verifier images
+    needs: [verify-release, publish-runtime]
+    uses: docker/github-builder/.github/workflows/build.yml@58cb9f5b71b1836d6f690c1e95effdeb9b98cb8a # v1
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      artifact-metadata: write
+      id-token: write
+    with:
+      output: image
+      push: true
+      platforms: linux/amd64,linux/arm64
+      file: ./Dockerfile.mcp
+      build-args: |
+        JET_BROWSER_RUNTIME_IMAGE=ghcr.io/${{ github.repository }}@${{ needs.publish-runtime.outputs.digest }}
+      cache: true
+      cache-scope: mcp
+      cache-mode: max
+      sbom: true
+      sign: 'true'
+      meta-images: ghcr.io/${{ github.repository }}-mcp
+      meta-flavor: latest=false
+      meta-tags: |
+        type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+      set-meta-labels: true
+      meta-labels: |
+        org.opencontainers.image.title=Jet Browser MCP Verifier
+        org.opencontainers.image.description=Bounded MCP verifier for the Jet Browser WPE WebKit runtime
+        org.opencontainers.image.licenses=Apache-2.0
+        io.modelcontextprotocol.server.name=io.github.masakaai/jet-browser
+    secrets:
+      registry-auths: |
+        - registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and publish the standalone image
-        id: push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+  verify-published:
+    name: Verify published ${{ matrix.platform }} images
+    needs: [publish-runtime, publish-mcp]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            kernel-arch: x86_64
+            image-arch: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            kernel-arch: aarch64
+            image-arch: arm64
+    steps:
+      - name: Check out the released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          context: .
-          file: ./Dockerfile.standalone
-          platforms: linux/amd64
-          pull: true
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
-      - name: Attest the published image digest
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      - name: Set up Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+          node-version: 24
+          cache: npm
 
-      - name: Derive MCP image tags and labels
-        id: mcp-meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.MCP_IMAGE_NAME }}
-          flavor: latest=false
-          tags: |
-            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
-          labels: |
-            org.opencontainers.image.title=Jet Browser MCP Verifier
-            org.opencontainers.image.description=Bounded MCP verifier for the Jet Browser WPE WebKit runtime
-            org.opencontainers.image.licenses=Apache-2.0
-            io.modelcontextprotocol.server.name=io.github.masakaai/jet-browser
+      - name: Confirm the native runner
+        env:
+          EXPECTED_KERNEL_ARCH: ${{ matrix.kernel-arch }}
+        run: test "$(uname -m)" = "$EXPECTED_KERNEL_ARCH"
 
-      - name: Build and publish the MCP verifier image
-        id: mcp-push
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          context: .
-          file: ./Dockerfile.mcp
-          platforms: linux/amd64
-          pull: true
-          push: true
-          tags: ${{ steps.mcp-meta.outputs.tags }}
-          labels: ${{ steps.mcp-meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          provenance: mode=max
-          sbom: true
+      - name: Verify both OCI manifests advertise the native platforms
+        if: matrix.platform == 'linux/amd64'
+        env:
+          RUNTIME_IMAGE: ghcr.io/${{ github.repository }}@${{ needs.publish-runtime.outputs.digest }}
+          MCP_IMAGE: ghcr.io/${{ github.repository }}-mcp@${{ needs.publish-mcp.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect "$RUNTIME_IMAGE" --raw > /tmp/runtime-manifest.json
+          docker buildx imagetools inspect "$MCP_IMAGE" --raw > /tmp/mcp-manifest.json
+          for manifest in /tmp/runtime-manifest.json /tmp/mcp-manifest.json; do
+            jq -e '[.manifests[] | select(.platform.os == "linux") | .platform.architecture] | unique | sort == ["amd64", "arm64"]' "$manifest"
+          done
 
-      - name: Attest the MCP verifier image digest
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+      - name: Install MCP smoke-test dependencies
+        run: npm ci
+
+      - name: Exercise the published runtime through the root Action
+        uses: ./
         with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.MCP_IMAGE_NAME }}
-          subject-digest: ${{ steps.mcp-push.outputs.digest }}
-          push-to-registry: true
+          image: ghcr.io/${{ github.repository }}@${{ needs.publish-runtime.outputs.digest }}
+          platform: ${{ matrix.platform }}
+
+      - name: Exercise both MCP tools against the published runtime
+        env:
+          RUNTIME_IMAGE: ghcr.io/${{ github.repository }}@${{ needs.publish-runtime.outputs.digest }}
+          MCP_IMAGE: ghcr.io/${{ github.repository }}-mcp@${{ needs.publish-mcp.outputs.digest }}
+          EXPECTED_IMAGE_ARCH: ${{ matrix.image-arch }}
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: |
+          node scripts/mcp-container-smoke.mjs "$MCP_IMAGE" "$EXPECTED_PLATFORM" "$RUNTIME_IMAGE"
+          test "$(docker image inspect "$RUNTIME_IMAGE" --format '{{.Architecture}}')" = "$EXPECTED_IMAGE_ARCH"
+          test "$(docker image inspect "$MCP_IMAGE" --format '{{.Architecture}}')" = "$EXPECTED_IMAGE_ARCH"
