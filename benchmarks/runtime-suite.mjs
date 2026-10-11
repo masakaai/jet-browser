@@ -242,7 +242,10 @@ async function jetSample({ image, name }) {
   });
   const receive = async () => {
     const response = JSON.parse(await lines.next());
-    if (!response.ok) throw Error(response.error || 'Jet Browser command failed');
+    if (!response.ok) {
+      const diagnostic = stderr.trim().slice(-400);
+      throw Error(`${response.error || 'Jet Browser command failed'}${diagnostic ? `; runtime stderr: ${diagnostic}` : ''}`);
+    }
     return response.value;
   };
   const send = async commandValue => {
