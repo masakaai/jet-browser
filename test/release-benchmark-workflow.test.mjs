@@ -21,6 +21,8 @@ test('release benchmark records the same public image on native AMD64 and ARM64 
   assert.match(workflow, /git show "\$RELEASE_TAG:package\.json"/);
   assert.match(workflow, /uses: actions\/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1/);
   assert.match(workflow, /uses: actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9/);
+  assert.match(workflow, /ensure_sysctl \/proc\/sys\/kernel\/unprivileged_userns_clone kernel\.unprivileged_userns_clone 1/);
+  assert.match(workflow, /ensure_sysctl \/proc\/sys\/kernel\/apparmor_restrict_unprivileged_userns kernel\.apparmor_restrict_unprivileged_userns 0/);
   assert.match(workflow, /\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$/);
   assert.match(workflow, /ghcr\.io\/masakaai\/jet-browser:\$version/);
   assert.match(workflow, /application\/vnd\.oci\.image\.index\.v1\+json/);

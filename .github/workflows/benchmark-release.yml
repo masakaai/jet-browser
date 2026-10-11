@@ -49,6 +49,21 @@ jobs:
         with:
           node-version: 24
 
+      - name: Enable the WPE browser sandbox
+        shell: bash
+        run: |
+          set -euo pipefail
+          ensure_sysctl() {
+            local file="$1" key="$2" expected="$3" current
+            [ -e "$file" ] || return 0
+            current="$(cat "$file")"
+            [ "$current" = "$expected" ] && return 0
+            sudo sysctl -w "$key=$expected"
+            [ "$(cat "$file")" = "$expected" ]
+          }
+          ensure_sysctl /proc/sys/kernel/unprivileged_userns_clone kernel.unprivileged_userns_clone 1
+          ensure_sysctl /proc/sys/kernel/apparmor_restrict_unprivileged_userns kernel.apparmor_restrict_unprivileged_userns 0
+
       - name: Validate the stable release and native runner
         env:
           GITHUB_TOKEN: ${{ github.token }}
