@@ -257,9 +257,15 @@ async function jetSample({ image, name }) {
   try {
     await send({ op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' });
     await send({ op: 'navigate', url: 'http://127.0.0.1:8080/' });
-    const title = await send({ op: 'title' });
-    const verified = await send({ op: 'evaluate', expression: "({title:document.title,marker:document.querySelector('#result')?.id||null})" });
-    const value = verified?.result?.value ?? verified?.value ?? verified;
+    let title;
+    let value;
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      title = await send({ op: 'title' });
+      const verified = await send({ op: 'evaluate', expression: "({title:document.title,marker:document.querySelector('#result')?.id||null})" });
+      value = verified?.result?.value ?? verified?.value ?? verified;
+      if (title === 'Jet Browser Ready' && value?.title === title && value.marker === 'result') break;
+      await sleep(20);
+    }
     if (title !== 'Jet Browser Ready' || value?.title !== title || value.marker !== 'result') throw Error('Jet Browser fixture verification failed');
     const browserReadyMs = Number((performance.now() - started).toFixed(2));
     const check = await send({ op: 'evaluate', expression: 'document.title' });
