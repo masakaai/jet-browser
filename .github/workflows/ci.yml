@@ -41,6 +41,20 @@ jobs:
           pull: 'false'
       - name: Exercise the Docker-only quick start
         run: sh scripts/try-jet.sh
+      - name: Exercise page isolation and bounded stability
+        run: >-
+          npm run stability --
+          --no-build
+          --image=jet-browser:ci
+          --output=benchmarks/results/stability-ci.json
+      - name: Upload the stability evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jet-browser-stability-${{ github.run_id }}
+          path: benchmarks/results/stability-ci.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Install MCP smoke-test dependencies
         run: npm ci
       - name: Exercise the MCP container entry point

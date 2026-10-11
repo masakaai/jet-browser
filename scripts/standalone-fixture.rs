@@ -7,8 +7,10 @@ const PAGE: &str = r#"<!doctype html>
 <style>body{margin:24px;font:16px sans-serif}label{display:block}input{width:280px;height:28px}</style>
 <label>Message <input id="message" autofocus></label>
 <output id="result"></output>
+<output id="marker"></output>
 <script>
 message.addEventListener('input', () => result.value = message.value);
+marker.value = new URL(location.href).searchParams.get('marker') || '';
 </script>"#;
 
 fn main() -> std::io::Result<()> {

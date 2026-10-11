@@ -26,6 +26,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="./integrations/hermes/README.md">Hermes integration</a> ·
   <a href="./integrations/mcp/README.md">MCP verifier</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
+  <a href="./docs/stability.md">Stability method</a> ·
   <a href="./benchmarks/results/runtime-2026-10-07.json">Raw samples</a>
 </p>
 
@@ -167,6 +168,8 @@ jobs:
 ~~~
 
 The Action selects the runner's native `linux/amd64` or `linux/arm64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
+
+For a bounded multi-page run, use `npm run stability`. The default 10-second scenario creates three isolated pages across two churn cycles, verifies native input, JavaScript state, semantic DOM, and a fresh PNG on every page, samples memory and runtime-process health, and writes a machine-readable report. See the [stability method and scope](./docs/stability.md).
 
 ### 4. Embed the runtime boundary
 
