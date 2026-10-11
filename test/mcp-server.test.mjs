@@ -6,6 +6,7 @@ import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 import {
   JET_BROWSER_IMAGE,
+  JET_BROWSER_PLATFORM,
   runStandaloneVerification,
   sanitizeError,
 } from '../integrations/mcp/server.mjs';
@@ -44,7 +45,7 @@ test('verification pins the image and accepts complete smoke evidence', async ()
   assert.equal(options.startupTimeoutMs, 45_000);
   assert.equal(options.environment.JET_BROWSER_IMAGE, JET_BROWSER_IMAGE);
   assert.equal(options.environment.DOCKER, 'docker');
-  assert.equal(options.environment.DOCKER_DEFAULT_PLATFORM, 'linux/amd64');
+  assert.equal(options.environment.DOCKER_DEFAULT_PLATFORM, JET_BROWSER_PLATFORM);
 });
 
 test('verification rejects malformed or incomplete evidence', async () => {
@@ -111,6 +112,7 @@ test('stdio server advertises only the bounded verifier tools', { timeout: 15_00
     assert.equal(response.isError, undefined);
     assert.equal(response.structuredContent.runtime, 'WPE WebKit 2.54');
     assert.equal(response.structuredContent.image, JET_BROWSER_IMAGE);
+    assert.equal(response.structuredContent.platform, JET_BROWSER_PLATFORM);
     assert.equal(response.structuredContent.browserNetwork, 'disabled');
     assert.match(response.content[0].text, /No public-web navigation/);
   } finally {

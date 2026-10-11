@@ -4,12 +4,16 @@ import { Client } from '@modelcontextprotocol/client';
 import { StdioClientTransport } from '@modelcontextprotocol/client/stdio';
 
 const image = process.argv[2];
-if (!image) throw new Error('Usage: node scripts/mcp-container-smoke.mjs <image>');
+const platform = process.argv[3] || 'linux/amd64';
+const expectedRuntimeImage = process.argv[4];
+if (!image || !/^linux\/(amd64|arm64)$/.test(platform)) {
+  throw new Error('Usage: node scripts/mcp-container-smoke.mjs <image> [linux/amd64|linux/arm64] [runtime-image]');
+}
 
 const transport = new StdioClientTransport({
   command: 'docker',
   args: [
-    'run', '--rm', '-i', '--platform=linux/amd64', '--network=none',
+    'run', '--rm', '-i', `--platform=${platform}`, '--network=none',
     '--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock',
     image,
   ],
@@ -34,6 +38,7 @@ try {
   const response = await client.callTool({ name: 'jet_browser_capabilities', arguments: {} });
   assert.equal(response.isError, undefined);
   assert.equal(response.structuredContent.runtime, 'WPE WebKit 2.54');
+  assert.equal(response.structuredContent.platform, platform);
   assert.equal(response.structuredContent.browserNetwork, 'disabled');
   assert.match(response.content[0].text, /No public-web navigation/);
 
@@ -48,7 +53,8 @@ try {
   assert.equal(verification.structuredContent.title, 'Jet Browser Ready');
   assert.equal(verification.structuredContent.input, 'open-source runtime');
   assert.ok(verification.structuredContent.screenshotBytes >= 1000);
-  assert.match(verification.structuredContent.image, /^ghcr\.io\/masakaai\/jet-browser@sha256:[a-f0-9]{64}$/);
+  if (expectedRuntimeImage) assert.equal(verification.structuredContent.image, expectedRuntimeImage);
+  else assert.match(verification.structuredContent.image, /^ghcr\.io\/masakaai\/jet-browser@sha256:[a-f0-9]{64}$/);
   assert.equal(leftoverVerifierContainers(), '');
   process.stdout.write(`${JSON.stringify({
     status: 'passed',

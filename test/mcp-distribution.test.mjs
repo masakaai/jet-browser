@@ -5,13 +5,15 @@ import { readFile } from 'node:fs/promises';
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('MCP OCI package is registry-owned, network-disabled, and version-aligned', async () => {
-  const [dockerfile, metadataText, packageText, workflow, readme, smoke] = await Promise.all([
+  const [dockerfile, metadataText, packageText, workflow, readme, smoke, runtimeConfig, renderer] = await Promise.all([
     read('Dockerfile.mcp'),
     read('server.json'),
     read('package.json'),
     read('.github/workflows/publish-container.yml'),
     read('integrations/mcp/README.md'),
     read('scripts/mcp-container-smoke.mjs'),
+    read('integrations/mcp/runtime-config.mjs'),
+    read('scripts/render-mcp-runtime-config.mjs'),
   ]);
   const metadata = JSON.parse(metadataText);
   const packageJson = JSON.parse(packageText);
@@ -32,6 +34,9 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
 
   assert.match(dockerfile, /^FROM node:24-alpine$/m);
   assert.match(dockerfile, /apk add --no-cache docker-cli/);
+  assert.match(dockerfile, /ARG JET_BROWSER_RUNTIME_IMAGE=/);
+  assert.match(dockerfile, /ARG JET_BROWSER_RUNTIME_PLATFORM=linux\/amd64/);
+  assert.match(dockerfile, /render-mcp-runtime-config\.mjs/);
   assert.match(dockerfile, /io\.modelcontextprotocol\.server\.name="io\.github\.masakaai\/jet-browser"/);
   assert.match(dockerfile, /ENTRYPOINT \["node", "integrations\/mcp\/server\.mjs"\]/);
   assert.doesNotMatch(dockerfile, /COPY \. \.|docker:dind|dockerd/);
@@ -43,8 +48,11 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.match(readme, /--platform=linux\/amd64/);
   assert.match(readme, /--network=none/);
   assert.match(smoke, /name: 'jet_browser_verify'/);
+  assert.match(smoke, /linux\/arm64/);
   assert.match(smoke, /leftoverVerifierContainers/);
   assert.match(smoke, /type=bind,src=\/var\/run\/docker\.sock,dst=\/var\/run\/docker\.sock/);
+  assert.match(runtimeConfig, /JET_BROWSER_PLATFORM = 'linux\/amd64'/);
+  assert.match(renderer, /linux\\\/\(amd64\|arm64\)/);
 });
 
 test('README Cursor install link preserves the reviewed MCP runtime boundary', async () => {

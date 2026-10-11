@@ -15,6 +15,10 @@ inputs:
     description: Pull the image before verification; set to false for an existing local image.
     required: false
     default: 'true'
+  platform:
+    description: OCI platform of the runtime image.
+    required: false
+    default: linux/amd64
 
 runs:
   using: composite
@@ -28,6 +32,7 @@ runs:
       shell: bash
       env:
         JET_BROWSER_PULL: ${{ inputs.pull }}
+        JET_BROWSER_PLATFORM: ${{ inputs.platform }}
       run: |
         set -euo pipefail
         if [ "${RUNNER_OS:-}" != "Linux" ]; then
@@ -38,6 +43,10 @@ runs:
         case "$JET_BROWSER_PULL" in
           true|false) ;;
           *) echo "pull must be true or false" >&2; exit 1 ;;
+        esac
+        case "$JET_BROWSER_PLATFORM" in
+          linux/amd64|linux/arm64) ;;
+          *) echo "platform must be linux/amd64 or linux/arm64" >&2; exit 1 ;;
         esac
 
     - name: Enable the WPE browser sandbox
@@ -64,11 +73,12 @@ runs:
       shell: bash
       env:
         JET_BROWSER_IMAGE: ${{ inputs.image }}
-      run: docker pull --platform=linux/amd64 "$JET_BROWSER_IMAGE"
+        JET_BROWSER_PLATFORM: ${{ inputs.platform }}
+      run: docker pull --platform="$JET_BROWSER_PLATFORM" "$JET_BROWSER_IMAGE"
 
     - name: Exercise browser startup, native input, DOM, and PNG capture
       shell: bash
       env:
-        DOCKER_DEFAULT_PLATFORM: linux/amd64
+        DOCKER_DEFAULT_PLATFORM: ${{ inputs.platform }}
         JET_BROWSER_IMAGE: ${{ inputs.image }}
       run: node "$GITHUB_ACTION_PATH/scripts/standalone-smoke.mjs" --no-build

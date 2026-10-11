@@ -6,15 +6,16 @@ import { McpServer } from '@modelcontextprotocol/server';
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { z } from 'zod';
 import { runStandaloneSmoke } from '../../scripts/standalone-runner.mjs';
+import { JET_BROWSER_IMAGE, JET_BROWSER_PLATFORM } from './runtime-config.mjs';
 
 const integrationDir = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(integrationDir, '../..');
 
-export const JET_BROWSER_IMAGE = 'ghcr.io/masakaai/jet-browser@sha256:540a1fec531bf71b62c2c2d030c033249955ffc192ab7e0e7a1ac8d8412a661b';
+export { JET_BROWSER_IMAGE, JET_BROWSER_PLATFORM };
 
 const CAPABILITIES = Object.freeze({
   runtime: 'WPE WebKit 2.54',
-  platform: 'linux/amd64',
+  platform: JET_BROWSER_PLATFORM,
   image: JET_BROWSER_IMAGE,
   browserNetwork: 'disabled',
   evidence: [
@@ -70,7 +71,7 @@ function childEnvironment() {
   return {
     ...environment,
     DOCKER: 'docker',
-    DOCKER_DEFAULT_PLATFORM: 'linux/amd64',
+    DOCKER_DEFAULT_PLATFORM: JET_BROWSER_PLATFORM,
     JET_BROWSER_IMAGE,
   };
 }
