@@ -483,7 +483,7 @@ export async function runRuntimeSuite({ providers, runs, warmups, images, commit
       memoryLimitMiB: 1024,
       viewport: { width: 1280, height: 800 },
       networkTarget: 'container-local fixture only',
-      browserReady: 'docker start to verified title and DOM marker',
+      browserReady: 'docker run invocation to verified title and DOM marker',
       memory: 'Docker working-set snapshot after title, DOM, script, and screenshot verification while the browser remained active',
       order: providers,
     },
