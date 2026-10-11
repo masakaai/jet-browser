@@ -3,14 +3,19 @@
 
 import argparse
 import json
-import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "integrations" / "python"))
+try:
+    from jet_browser import JET_BROWSER_IMAGE, JetBrowserProcess
+except ModuleNotFoundError as error:
+    if error.name != "jet_browser":
+        raise
+    import sys
 
-from jet_browser import JET_BROWSER_IMAGE, JetBrowserProcess  # noqa: E402
+    sys.path.insert(0, str(ROOT / "integrations" / "python"))
+    from jet_browser import JET_BROWSER_IMAGE, JetBrowserProcess  # noqa: E402
 
 
 def evaluation_value(value):

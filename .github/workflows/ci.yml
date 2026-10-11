@@ -27,11 +27,46 @@ jobs:
         run: python3 -m unittest discover -s integrations/python/tests -v
       - run: cargo test --all-targets
 
+  python-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Install pinned package tooling
+        run: python3 -m pip install build==1.6.1 twine==7.0.0
+      - name: Build the Python distributions
+        run: python3 -m build integrations/python --outdir dist/python
+      - name: Check the Python distribution metadata
+        run: python3 -m twine check dist/python/*
+      - name: Verify the Python distribution boundary
+        run: python3 integrations/python/tests/verify_distribution.py dist/python
+      - name: Upload the verified Python distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jet-browser-python-package
+          path: dist/python
+          if-no-files-found: error
+          retention-days: 14
+
   standalone:
+    needs: python-package
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+      - name: Download the verified Python distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: jet-browser-python-package
+          path: dist/python
+      - name: Install the exact verified Python wheel
+        run: python3 -m pip install --no-index --no-deps dist/python/*.whl
       - name: Build the standalone runtime for Action acceptance
         run: docker build -f Dockerfile.standalone -t jet-browser:ci .
       - name: Build the MCP verifier image
@@ -65,10 +100,14 @@ jobs:
         run: node scripts/mcp-container-smoke.mjs jet-browser-mcp:ci
 
   arm64-standalone:
+    needs: python-package
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
@@ -79,6 +118,13 @@ jobs:
           test "$(docker info --format '{{.Architecture}}')" = aarch64
       - name: Install MCP smoke-test dependencies
         run: npm ci
+      - name: Download the verified Python distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: jet-browser-python-package
+          path: dist/python
+      - name: Install the exact verified Python wheel
+        run: python3 -m pip install --no-index --no-deps dist/python/*.whl
       - name: Build the native ARM64 runtime
         run: |
           docker build -f Dockerfile.standalone -t jet-browser:arm64 .

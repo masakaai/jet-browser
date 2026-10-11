@@ -4,6 +4,14 @@ Jet Browser includes a dependency-free Python adapter for supervising one isolat
 
 Python 3.11+ and Docker are required. Browser network is disabled by default, no host directory or Docker socket is mounted into the browser, and the released multi-platform image is pinned by digest.
 
+Install the reviewed package directly from this repository while the PyPI release workflow is being prepared:
+
+~~~bash
+python3 -m pip install "jet-browser @ git+https://github.com/masakaai/jet-browser.git@main#subdirectory=integrations/python"
+~~~
+
+The package has no runtime Python dependencies. CI builds both wheel and source distributions, checks their metadata and bundled policy, installs the exact wheel into a clean environment, then exercises that wheel against native AMD64 and ARM64 browser images.
+
 ## Verify the offline path
 
 From a source checkout:
@@ -32,7 +40,7 @@ The screenshot byte count and native platform vary.
 The default constructor remains offline:
 
 ~~~python
-from integrations.python.jet_browser import JetBrowserProcess
+from jet_browser import JetBrowserProcess
 
 with JetBrowserProcess(fixture=True) as browser:
     browser.navigate("http://127.0.0.1:8080/")
@@ -62,4 +70,4 @@ with JetBrowserProcess(network="bridge", allow_network=True) as browser:
 - No personal browser profile, credential, or persistent Chrome daemon is attached.
 - Cleanup is idempotent and force-removes the named container after normal or exceptional exit.
 
-The adapter is source-distributed rather than a PyPI package. Copying it into another project preserves Apache-2.0 license obligations; keeping it in a checkout makes the reviewed seccomp policy available automatically.
+The installable package bundles the reviewed seccomp policy and Apache-2.0 license. PyPI publication is intentionally not claimed until the protected Trusted Publishing release workflow is live.

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jet-browser"
+version = "0.9.0"
+description = "Dependency-free Python supervisor for the isolated Jet Browser runtime"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Masaka" }]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/masakaai/jet-browser"
+Documentation = "https://github.com/masakaai/jet-browser/tree/main/integrations/python"
+Issues = "https://github.com/masakaai/jet-browser/issues"
+Source = "https://github.com/masakaai/jet-browser"
+
+[tool.setuptools]
+packages = ["jet_browser"]
+package-dir = { jet_browser = "." }
+include-package-data = false
+
+[tool.setuptools.package-data]
+jet_browser = ["py.typed", "seccomp_profile.json"]

@@ -198,6 +198,7 @@ For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sd
 Python applications can supervise the same container and ordered JSONL boundary without third-party packages:
 
 ~~~bash
+python3 -m pip install "jet-browser @ git+https://github.com/masakaai/jet-browser.git@main#subdirectory=integrations/python"
 python3 examples/python_quickstart.py
 ~~~
 

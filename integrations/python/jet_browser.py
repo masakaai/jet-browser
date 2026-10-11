@@ -31,7 +31,7 @@ _IMAGE_REFERENCE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/:@+-]{0,254}$")
 _OPERATION = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 _MAX_COMMAND_BYTES = 1024 * 1024
 _MAX_RESPONSE_BYTES = 24 * 1024 * 1024
-_DEFAULT_SECCOMP = Path(__file__).resolve().parents[2] / "seccomp_profile.json"
+_DEFAULT_SECCOMP = Path(__file__).resolve().with_name("seccomp_profile.json")
 
 
 def resolve_platform(machine: str | None = None) -> str:
