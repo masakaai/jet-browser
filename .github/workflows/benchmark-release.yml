@@ -37,11 +37,11 @@ jobs:
       EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
       EXPECTED_NODE_ARCHITECTURE: ${{ matrix.nodeArchitecture }}
     steps:
-      - name: Check out the released source
+      - name: Check out the benchmark harness
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ inputs.release_tag }}
-          fetch-depth: 1
+          ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up Node.js 24
@@ -56,10 +56,11 @@ jobs:
         run: |
           set -euo pipefail
           [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
-          test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
 
           version="${RELEASE_TAG#v}"
-          test "$(node -p "require('./package.json').version")" = "$version"
+          source_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          [[ "$source_commit" =~ ^[a-f0-9]{40}$ ]]
+          test "$(git show "$RELEASE_TAG:package.json" | jq -r .version)" = "$version"
           test "$(uname -m)" = "$([[ "$EXPECTED_ARCHITECTURE" == arm64 ]] && printf aarch64 || printf x86_64)"
           test "$(docker info --format '{{.Architecture}}')" = "$([[ "$EXPECTED_ARCHITECTURE" == arm64 ]] && printf aarch64 || printf x86_64)"
 
@@ -121,7 +122,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          source_commit="$(git rev-parse HEAD)"
+          source_commit="$(git rev-parse "${RELEASE_TAG}^{commit}")"
+          harness_commit="$(git rev-parse HEAD)"
           output="benchmarks/results/release-${RELEASE_TAG}-${ARTIFACT_SLUG}.json"
           raw="$RUNNER_TEMP/release-benchmark-raw.json"
           set +e
@@ -138,9 +140,10 @@ jobs:
           jq \
             --arg releaseTag "$RELEASE_TAG" \
             --arg sourceCommit "$source_commit" \
+            --arg harnessCommit "$harness_commit" \
             --arg manifestDigest "$MANIFEST_DIGEST" \
             --arg platform "$EXPECTED_PLATFORM" \
-            '. + {release:{releaseTag:$releaseTag,sourceCommit:$sourceCommit,manifestDigest:$manifestDigest,platform:$platform}}' \
+            '. + {release:{releaseTag:$releaseTag,sourceCommit:$sourceCommit,harnessCommit:$harnessCommit,manifestDigest:$manifestDigest,platform:$platform}}' \
             "$raw" > "$output"
           if (( benchmark_status != 0 )); then
             jq -r '.implementations.jet.samples[] | select(.status != "passed") | "run=\(.run) error=\(.error // "unknown")"' "$output"
@@ -171,6 +174,7 @@ jobs:
           const report = JSON.parse(await readFile(path, 'utf8'));
           validateRuntimeReport(report);
           if (report.release?.releaseTag !== tag || report.release?.manifestDigest !== digest || report.release?.platform !== platform) throw Error('Release identity was not preserved');
+          if (report.release?.sourceCommit !== report.implementations?.jet?.commit || !/^[a-f0-9]{40}$/.test(report.release?.harnessCommit || '')) throw Error('Release or harness source identity was not preserved');
           if (report.system?.architecture !== architecture) throw Error('Benchmark architecture did not match the native runner');
           if (report.method?.runs !== 7 || report.method?.warmups !== 1 || report.method?.order?.join(',') !== 'jet') throw Error('Benchmark method changed');
           if (report.implementations?.jet?.samples?.some(sample => sample.status !== 'passed')) throw Error('A measured release sample failed');

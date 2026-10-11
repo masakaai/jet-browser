@@ -15,6 +15,10 @@ test('release benchmark records the same public image on native AMD64 and ARM64 
   assert.match(workflow, /runner: ubuntu-24\.04\n\s+platform: linux\/amd64\n\s+architecture: amd64/);
   assert.match(workflow, /runner: ubuntu-24\.04-arm\n\s+platform: linux\/arm64\n\s+architecture: arm64/);
   assert.match(workflow, /uses: actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/);
+  assert.match(workflow, /ref: \$\{\{ github\.sha \}\}/);
+  assert.match(workflow, /fetch-depth: 0/);
+  assert.match(workflow, /source_commit="\$\(git rev-parse "\$\{RELEASE_TAG\}\^\{commit\}"\)"/);
+  assert.match(workflow, /git show "\$RELEASE_TAG:package\.json"/);
   assert.match(workflow, /uses: actions\/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1/);
   assert.match(workflow, /uses: actions\/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9/);
   assert.match(workflow, /\^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$/);
@@ -35,7 +39,15 @@ test('release benchmark records the same public image on native AMD64 and ARM64 
   assert.match(workflow, /name: Validate the native benchmark report/);
   assert.match(workflow, /validateRuntimeReport/);
   assert.match(workflow, /releaseTag/);
+  assert.match(workflow, /harnessCommit/);
   assert.match(workflow, /manifestDigest/);
   assert.match(workflow, /platform/);
   assert.doesNotMatch(workflow, /setup-qemu-action|docker build|buildx build/);
+});
+
+test('release measurement uses the session strategy proven by the public smoke path', async () => {
+  const suite = await read('benchmarks/runtime-suite.mjs');
+
+  assert.match(suite, /page_load_strategy: 'normal'/);
+  assert.doesNotMatch(suite, /page_load_strategy: 'eager'/);
 });

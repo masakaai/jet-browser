@@ -241,7 +241,7 @@ async function jetSample({ image, name }) {
       child.once('close', code => code ? reject(Error(`Jet Browser exited ${code}: ${stderr}`)) : resolvePromise());
   });
   const commands = [
-    { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'eager' },
+    { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'normal' },
     { op: 'navigate', url: 'http://127.0.0.1:8080/' },
     { op: 'title' },
     { op: 'evaluate', expression: "({title:document.title,marker:document.querySelector('#result')?.id||null})" },
