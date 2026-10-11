@@ -41,9 +41,12 @@ test('repository exposes matching local and plugin skills through the MASAKA mar
   const benchmark=readme.indexOf('## Reproducible runtime benchmark');
   const agentPrompt=readme.indexOf('## Let your coding agent verify it');
   const quickStart=readme.indexOf('## Quick start');
-  const install=readme.indexOf('### 1. Install the coding-agent plugin');
+  const prove=readme.indexOf('### 1. Prove the runtime with one command');
+  const install=readme.indexOf('### 2. Install the coding-agent plugin');
   assert.ok(benchmark<agentPrompt);
   assert.ok(agentPrompt<quickStart);
+  assert.notEqual(prove,-1);
   assert.notEqual(install,-1);
-  assert.ok(install<readme.indexOf('### 2. Run the verified standalone flow'));
+  assert.ok(prove<install);
+  assert.ok(install<readme.indexOf('### 3. Run the verified standalone flow'));
 });

@@ -44,7 +44,7 @@ Jet Browser is the execution layer for runs that need a clear, inspectable brows
 
 Keep Playwright, CDP, or your current browser stack when you need their browser matrix, extension ecosystem, or an existing signed-in Chrome profile. Jet Browser does not attach to daily Chrome and does not include a model or agent.
 
-[Run the verified smoke test →](#2-run-the-verified-standalone-flow) · [See the protocol →](#3-embed-the-runtime-boundary)
+[Run the verified smoke test →](#3-run-the-verified-standalone-flow) · [See the protocol →](#4-embed-the-runtime-boundary)
 
 ## Reproducible runtime benchmark
 
@@ -64,9 +64,25 @@ Install or upgrade Jet Browser to the latest main for this repository from https
 
 ## Quick start
 
-Requirements: Docker and Node.js 24+.
+### 1. Prove the runtime with one command
 
-### 1. Install the coding-agent plugin
+Docker only—no clone, Node.js, account, API key, or outbound browser network:
+
+~~~bash
+curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
+~~~
+
+The [reviewable script](./scripts/try-jet.sh) downloads the release-pinned seccomp policy, verifies its SHA-256, pulls the attested `linux/amd64` image by immutable digest, and exercises browser startup, native input, DOM state, and PNG capture. It starts a disposable, resource-bounded container with networking disabled and does not mount the Docker socket or a host directory.
+
+Successful output ends with:
+
+~~~json
+{"status":"passed","version":"0.8.0","network":"disabled","nativeInput":"verified","dom":"verified","screenshot":"verified PNG"}
+~~~
+
+The full source checkout and SDK paths below require Docker and Node.js 24+.
+
+### 2. Install the coding-agent plugin
 
 Codex:
 
@@ -116,7 +132,7 @@ The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verif
 
 The [MCP verifier](./integrations/mcp/README.md) is published as [`io.github.masakaai/jet-browser`](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.masakaai%2Fjet-browser) in the official MCP Registry. It exposes the same bounded proof through a local stdio server and a versioned OCI package, advertises the immutable runtime contract, and runs the network-disabled acceptance without accepting a URL, profile, credential, or arbitrary command. Docker socket grants host-level control, so install it only for a trusted local MCP client.
 
-### 2. Run the verified standalone flow
+### 3. Run the verified standalone flow
 
 Published from a tagged GitHub release, the public `linux/amd64` image carries build provenance for its immutable digest. The smoke test disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
 
@@ -156,7 +172,7 @@ jobs:
 
 The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
 
-### 3. Embed the runtime boundary
+### 4. Embed the runtime boundary
 
 Each input line is one JSON command; each output line is one JSON response. A supervisor in any language can own the container lifecycle and keep the model or harness replaceable.
 
