@@ -1,0 +1,159 @@
+name: benchmark-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag to benchmark, for example v0.9.0
+        required: true
+        default: v0.9.0
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: ${{ matrix.platform }} release benchmark
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            platform: linux/amd64
+            architecture: amd64
+            nodeArchitecture: x64
+            artifact: amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
+            architecture: arm64
+            nodeArchitecture: arm64
+            artifact: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      EXPECTED_PLATFORM: ${{ matrix.platform }}
+      EXPECTED_ARCHITECTURE: ${{ matrix.architecture }}
+      EXPECTED_NODE_ARCHITECTURE: ${{ matrix.nodeArchitecture }}
+    steps:
+      - name: Check out the released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: Validate the stable release and native runner
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
+
+          version="${RELEASE_TAG#v}"
+          test "$(node -p "require('./package.json').version")" = "$version"
+          test "$(uname -m)" = "$([[ "$EXPECTED_ARCHITECTURE" == arm64 ]] && printf aarch64 || printf x86_64)"
+          test "$(docker info --format '{{.Architecture}}')" = "$([[ "$EXPECTED_ARCHITECTURE" == arm64 ]] && printf aarch64 || printf x86_64)"
+
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-all-errors \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            --output "$RUNNER_TEMP/release.json"
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == false and .prerelease == false' \
+            "$RUNNER_TEMP/release.json" >/dev/null
+
+      - name: Resolve and verify the public multi-platform manifest
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          image="ghcr.io/masakaai/jet-browser:$version"
+          registry_token="$(curl --fail --silent --show-error --location \
+            "https://ghcr.io/token?scope=repository:masakaai/jet-browser:pull&service=ghcr.io" | jq -r .token)"
+          test -n "$registry_token"
+
+          headers="$RUNNER_TEMP/runtime-manifest.headers"
+          body="$RUNNER_TEMP/runtime-manifest.json"
+          curl --fail --silent --show-error --location \
+            --header "Authorization: Bearer $registry_token" \
+            --header 'Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json' \
+            --dump-header "$headers" \
+            --output "$body" \
+            "https://ghcr.io/v2/masakaai/jet-browser/manifests/$version"
+          manifest_digest="$(awk 'BEGIN{IGNORECASE=1} /^docker-content-digest:/ {gsub("\r", "", $2); print $2}' "$headers" | tail -n1)"
+          [[ "$manifest_digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          jq -e \
+            --arg platform "$EXPECTED_PLATFORM" \
+            '($platform | split("/")) as $parts | any(.manifests[]; .platform.os == $parts[0] and .platform.architecture == $parts[1])' \
+            "$body" >/dev/null
+
+          printf 'release_image=%s\n' "$image" >> "$GITHUB_OUTPUT"
+          printf 'manifest_digest=%s\n' "$manifest_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Pull the exact native release image
+        env:
+          RELEASE_IMAGE: ${{ steps.image.outputs.release_image }}
+          MANIFEST_DIGEST: ${{ steps.image.outputs.manifest_digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull --platform="$EXPECTED_PLATFORM" "$RELEASE_IMAGE@$MANIFEST_DIGEST"
+          test "$(docker image inspect "$RELEASE_IMAGE@$MANIFEST_DIGEST" --format '{{.Architecture}}')" = "$EXPECTED_ARCHITECTURE"
+
+      - name: Measure seven verified release samples
+        env:
+          RELEASE_IMAGE: ${{ steps.image.outputs.release_image }}
+          MANIFEST_DIGEST: ${{ steps.image.outputs.manifest_digest }}
+          ARTIFACT_SLUG: ${{ matrix.artifact }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          source_commit="$(git rev-parse HEAD)"
+          output="benchmarks/results/release-${RELEASE_TAG}-${ARTIFACT_SLUG}.json"
+          raw="$RUNNER_TEMP/release-benchmark-raw.json"
+          node benchmarks/runtime-suite.mjs \
+            --providers=jet \
+            --runs=7 \
+            --warmups=1 \
+            --jet-commit="$source_commit" \
+            --jet-image="$RELEASE_IMAGE@$MANIFEST_DIGEST" \
+            --out="$raw"
+          jq \
+            --arg releaseTag "$RELEASE_TAG" \
+            --arg sourceCommit "$source_commit" \
+            --arg manifestDigest "$MANIFEST_DIGEST" \
+            --arg platform "$EXPECTED_PLATFORM" \
+            '. + {release:{releaseTag:$releaseTag,sourceCommit:$sourceCommit,manifestDigest:$manifestDigest,platform:$platform}}' \
+            "$raw" > "$output"
+          node --input-type=module - "$output" "$RELEASE_TAG" "$MANIFEST_DIGEST" "$EXPECTED_PLATFORM" "$EXPECTED_NODE_ARCHITECTURE" <<'NODE'
+          import { readFile } from 'node:fs/promises';
+          import { validateRuntimeReport } from './benchmarks/runtime-report.mjs';
+          const [path, tag, digest, platform, architecture] = process.argv.slice(2);
+          const report = JSON.parse(await readFile(path, 'utf8'));
+          validateRuntimeReport(report);
+          if (report.release?.releaseTag !== tag || report.release?.manifestDigest !== digest || report.release?.platform !== platform) throw Error('Release identity was not preserved');
+          if (report.system?.architecture !== architecture) throw Error('Benchmark architecture did not match the native runner');
+          if (report.method?.runs !== 7 || report.method?.warmups !== 1 || report.method?.order?.join(',') !== 'jet') throw Error('Benchmark method changed');
+          if (report.implementations?.jet?.samples?.some(sample => sample.status !== 'passed')) throw Error('A measured release sample failed');
+          NODE
+
+      - name: Upload the raw native benchmark report
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: jet-browser-${{ inputs.release_tag }}-${{ matrix.artifact }}
+          path: benchmarks/results/release-${{ inputs.release_tag }}-${{ matrix.artifact }}.json
+          if-no-files-found: error
+          retention-days: 30
