@@ -74,6 +74,19 @@ It does not measure public-site success, anti-bot behavior, model reasoning, tok
 
 Stagehand v4 is intentionally excluded from runtime timing. Its official architecture places state management and CDP dispatch in a browser extension and exposes model-backed agent actions; measuring that stack beside raw runtime startup would compare different boundaries. It remains part of the [competitor story review](./comparison.md).
 
+## Native v0.9.0 release verification
+
+The October 11, 2026 release run measured the same public v0.9.0 multi-platform manifest on native GitHub-hosted AMD64 and ARM64 runners. Each platform used one uncounted warmup and seven serial measured samples with networking disabled, a 2 CPU limit, 1 GiB of memory, and the same title, DOM, JavaScript, PNG, and active-memory checks. All 14 measured samples passed.
+
+| Native runner | Passed | Browser ready p50 / p95 | Ready range | Active memory p50 / p95 |
+| --- | ---: | ---: | ---: | ---: |
+| `ubuntu-24.04`, `linux/amd64`, AMD EPYC 9V45 | 7/7 | 513.42 / 560.72 ms | 485.44–560.72 ms | 240.8 / 242.4 MiB |
+| `ubuntu-24.04-arm`, `linux/arm64` | 7/7 | 559.92 / 570.78 ms | 541.99–570.78 ms | 305.6 / 310.7 MiB |
+
+Both reports resolve release source `b0867303260212eaeb427970b9a7fc6f8eed2fe1` and public manifest `sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec`. The complete samples and runner metadata are checked in as [`release-v0.9.0-amd64.json`](../benchmarks/results/release-v0.9.0-amd64.json) and [`release-v0.9.0-arm64.json`](../benchmarks/results/release-v0.9.0-arm64.json); the passing workflow is [run 38180195306](https://github.com/masakaai/jet-browser/actions/runs/38180195306).
+
+This is native release verification, not a controlled AMD64-versus-ARM64 performance comparison. The runner hardware differs, and the hosted ARM64 runner did not expose a CPU model in `/proc/cpuinfo`; compare each result only with a rerun on a matching environment.
+
 ## End-to-end smoke test
 
 ~~~bash

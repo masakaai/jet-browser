@@ -114,6 +114,35 @@ test('published report has seven verified samples and Jet leads both scoped metr
   assert.doesNotMatch(svg, /p50|passed|Median of .* runs|same Linux host/i);
 });
 
+test('published v0.9.0 reports verify one release manifest on both native architectures', () => {
+  const expected = [
+    { file: 'release-v0.9.0-amd64.json', platform: 'linux/amd64', architecture: 'x64', readyMedian: 513.42, memoryMedian: 240.8 },
+    { file: 'release-v0.9.0-arm64.json', platform: 'linux/arm64', architecture: 'arm64', readyMedian: 559.92, memoryMedian: 305.6 },
+  ];
+  const manifestDigest = 'sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec';
+  const sourceCommit = 'b0867303260212eaeb427970b9a7fc6f8eed2fe1';
+
+  for (const expectation of expected) {
+    const report = JSON.parse(readFileSync(new URL(`../benchmarks/results/${expectation.file}`, import.meta.url)));
+    assert.doesNotThrow(() => validateRuntimeReport(report));
+    assert.equal(report.release.releaseTag, 'v0.9.0');
+    assert.equal(report.release.platform, expectation.platform);
+    assert.equal(report.release.manifestDigest, manifestDigest);
+    assert.equal(report.release.sourceCommit, sourceCommit);
+    assert.equal(report.implementations.jet.commit, sourceCommit);
+    assert.equal(report.system.architecture, expectation.architecture);
+    assert.equal(report.method.runs, 7);
+    assert.equal(report.method.warmups, 1);
+    assert.equal(report.method.browserReady, 'docker run invocation to verified title and DOM marker');
+    assert.ok(report.implementations.jet.samples.every(sample => sample.status === 'passed' && sample.scriptVerified === true));
+    const summary = summarizeRuntimeReport(report).implementations.jet;
+    assert.equal(summary.requested, 7);
+    assert.equal(summary.passed, 7);
+    assert.equal(summary.browserReadyMs.median, expectation.readyMedian);
+    assert.equal(summary.activeMemoryMiB.median, expectation.memoryMedian);
+  }
+});
+
 test('competitor manifest pins source commits and states benchmark inclusion', () => {
   const manifest = JSON.parse(readFileSync(new URL('../benchmarks/competitors.lock.json', import.meta.url)));
   for (const name of ['browser-use', 'stagehand', 'steel-browser', 'browserless']) {

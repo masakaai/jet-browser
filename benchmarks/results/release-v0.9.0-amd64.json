@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-11T22:23:19.148Z",
+  "method": {
+    "task": "offline-fixture-title-dom-script-and-screenshot-verification",
+    "runs": 7,
+    "warmups": 1,
+    "concurrency": 1,
+    "cpuLimit": 2,
+    "memoryLimitMiB": 1024,
+    "viewport": {
+      "width": 1280,
+      "height": 800
+    },
+    "networkTarget": "container-local fixture only",
+    "browserReady": "docker run invocation to verified title and DOM marker",
+    "memory": "Docker working-set snapshot after title, DOM, script, and screenshot verification while the browser remained active",
+    "order": [
+      "jet"
+    ]
+  },
+  "system": {
+    "os": "Linux 6.17.0-1022-azure x86_64 GNU/Linux",
+    "architecture": "x64",
+    "cpu": "AMD EPYC 9V45 96-Core Processor",
+    "cpuLimit": 2,
+    "memoryLimitMiB": 1024,
+    "docker": "28.0.4",
+    "node": "v24.21.0"
+  },
+  "implementations": {
+    "jet": {
+      "commit": "b0867303260212eaeb427970b9a7fc6f8eed2fe1",
+      "license": "Apache-2.0",
+      "image": "ghcr.io/masakaai/jet-browser:0.9.0@sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec",
+      "imageDigest": "9413429bd18cfadd0b21eb99f2afc7ca423d66ccde6626271c8da4c8ec5edf54",
+      "samples": [
+        {
+          "run": 1,
+          "status": "passed",
+          "browserReadyMs": 507.9,
+          "scriptVerified": true,
+          "activeMemoryMiB": 240.8
+        },
+        {
+          "run": 2,
+          "status": "passed",
+          "browserReadyMs": 560.72,
+          "scriptVerified": true,
+          "activeMemoryMiB": 239.7
+        },
+        {
+          "run": 3,
+          "status": "passed",
+          "browserReadyMs": 540.03,
+          "scriptVerified": true,
+          "activeMemoryMiB": 241
+        },
+        {
+          "run": 4,
+          "status": "passed",
+          "browserReadyMs": 508.81,
+          "scriptVerified": true,
+          "activeMemoryMiB": 240.7
+        },
+        {
+          "run": 5,
+          "status": "passed",
+          "browserReadyMs": 485.44,
+          "scriptVerified": true,
+          "activeMemoryMiB": 242.4
+        },
+        {
+          "run": 6,
+          "status": "passed",
+          "browserReadyMs": 554.6,
+          "scriptVerified": true,
+          "activeMemoryMiB": 240
+        },
+        {
+          "run": 7,
+          "status": "passed",
+          "browserReadyMs": 513.42,
+          "scriptVerified": true,
+          "activeMemoryMiB": 241.9
+        }
+      ]
+    }
+  },
+  "release": {
+    "releaseTag": "v0.9.0",
+    "sourceCommit": "b0867303260212eaeb427970b9a7fc6f8eed2fe1",
+    "harnessCommit": "3e162049baeed34bb0e276aef56453c626704a87",
+    "manifestDigest": "sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec",
+    "platform": "linux/amd64"
+  }
+}
