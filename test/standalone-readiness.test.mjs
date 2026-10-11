@@ -56,6 +56,7 @@ test('standalone image has no hosted control-plane dependency', async () => {
   const smokeWrapper = await read('scripts/standalone-smoke.mjs');
   const smoke = await read('scripts/standalone-runner.mjs');
   const readiness = await read('scripts/standalone-readiness.mjs');
+  const rust = await read('rust/lib.rs');
   assert.doesNotMatch(dockerfile, /npm ci|@supabase|cloudflared|MASAKA_/i);
   assert.doesNotMatch(entrypoint, /SUPABASE|DATABASE|API_KEY|cloudflared/i);
   assert.match(entrypoint, /jet-wpe/);
@@ -70,6 +71,10 @@ test('standalone image has no hosted control-plane dependency', async () => {
   assert.match(smoke, /waitForFixtureDocument/);
   assert.match(readiness, /op: 'document_state'/);
   assert.match(smoke, /page_load_strategy: 'none'/);
+  assert.match(dockerfile, /find \/usr\/lib .*wpe-webkit-2\.0\/MiniBrowser/);
+  assert.match(dockerfile, /ln -s "\$mini_browser" \/usr\/local\/bin\/jet-browser-minibrowser/);
+  assert.match(rust, /MINI_BROWSER_BINARY: &str = "\/usr\/local\/bin\/jet-browser-minibrowser"/);
+  assert.doesNotMatch(rust, /x86_64-linux-gnu\/wpe-webkit-2\.0\/MiniBrowser/);
   assert.match(smoke, /type: 'pointer'/);
   assert.match(smoke, /type: 'text'/);
   assert.match(smoke, /"op":"close"|op: 'close'/);

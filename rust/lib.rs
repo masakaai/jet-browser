@@ -9,6 +9,8 @@ use std::time::Duration;
 type Result<T> = std::result::Result<T, String>;
 mod download_launch;
 
+const MINI_BROWSER_BINARY: &str = "/usr/local/bin/jet-browser-minibrowser";
+
 // WPE's element-send-keys path currently loses non-ASCII text and modifier case.
 // Insert committed text at the active editing selection, matching an IME commit.
 // Physical and shortcut keys continue through trusted W3C key actions.
@@ -364,7 +366,8 @@ impl Wpe {
         if !matches!(page_load_strategy, "none" | "eager" | "normal") {
             return Err("Invalid page-load strategy".into());
         }
-        let mut always_match = json!({"wpe:browserOptions":{"binary":"/usr/lib/x86_64-linux-gnu/wpe-webkit-2.0/MiniBrowser","args":args}});
+        let mut always_match =
+            json!({"wpe:browserOptions":{"binary":MINI_BROWSER_BINARY,"args":args}});
         // MiniBrowser's `--proxy` flag is a WebKit network proxy URI, but WPE
         // 2.54 applies it as a direct TLS endpoint for HTTPS and produces an
         // "unexpected TLS packet" error against a plaintext CONNECT proxy.

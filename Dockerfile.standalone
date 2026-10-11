@@ -20,6 +20,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     install -d -o browser -g browser -m 0700 /tmp/jet-browser-runtime && \
     chmod -R a+rX /usr/share/glib-2.0 /usr/share/fonts /var/cache/fontconfig /etc/fonts && \
     rm -rf /var/lib/apt/lists/*
+# Debian installs MiniBrowser below its architecture-specific multiarch path.
+# Resolve that path while building, fail if the package layout is unexpected,
+# and give the runtime one stable binary name on both AMD64 and ARM64.
+RUN mini_browser="$(find /usr/lib -type f -path '*/wpe-webkit-2.0/MiniBrowser' -print -quit)" && \
+    test -n "$mini_browser" && test -x "$mini_browser" && \
+    ln -s "$mini_browser" /usr/local/bin/jet-browser-minibrowser
 # Some OCI snapshotters preserve a restrictive root-directory mode from the
 # base layer. The runtime is intentionally non-root, so every parent directory
 # on executable/library paths must remain traversable.
