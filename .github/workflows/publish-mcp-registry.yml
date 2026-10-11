@@ -1,0 +1,172 @@
+name: publish-mcp-registry
+
+on:
+  workflow_run:
+    workflows: [publish-container]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable release tag to publish, for example v0.9.0
+        required: true
+        type: string
+
+concurrency:
+  group: publish-mcp-registry-${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'release')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.workflow_run.head_branch }}
+      EXPECTED_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+      MCP_SERVER_NAME: io.github.masakaai/jet-browser
+      MCP_PUBLISHER_VERSION: 1.8.1
+      MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc
+      MCP_REGISTRY_URL: https://registry.modelcontextprotocol.io
+      REGISTRY_ACTIVE_FILTER: '.server.name == $name and .server.version == $version and any(.server.packages[]?; .registryType == "oci" and .identifier == $image) and ._meta["io.modelcontextprotocol.registry/official"].status == "active"'
+    steps:
+      - name: Validate the release selector
+        shell: bash
+        run: |
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+
+      - name: Check out the released source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify the stable release and metadata alignment
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git describe --tags --exact-match HEAD)" = "$RELEASE_TAG"
+          if [[ -n "$EXPECTED_SHA" ]]; then
+            test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          fi
+
+          version="${RELEASE_TAG#v}"
+          test "$(node -p "require('./package.json').version")" = "$version"
+          test "$(jq -r .version server.json)" = "$version"
+          test "$(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json)" = "ghcr.io/masakaai/jet-browser-mcp:$version"
+
+          curl --fail --silent --show-error --location \
+            --retry 3 --retry-all-errors \
+            --header "Authorization: Bearer $GITHUB_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
+            --output "$RUNNER_TEMP/release.json"
+          jq -e \
+            --arg tag "$RELEASE_TAG" \
+            '.tag_name == $tag and .draft == false and .prerelease == false' \
+            "$RUNNER_TEMP/release.json" >/dev/null
+
+      - name: Install the pinned MCP publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/mcp-publisher_linux_amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --tlsv1.2 \
+            --retry 3 --retry-all-errors \
+            "https://github.com/modelcontextprotocol/registry/releases/download/v$MCP_PUBLISHER_VERSION/mcp-publisher_linux_amd64.tar.gz" \
+            --output "$archive"
+          echo "$MCP_PUBLISHER_SHA256  $archive" | sha256sum --check --strict
+          tar --extract --gzip --file "$archive" --directory "$RUNNER_TEMP" mcp-publisher
+          chmod 0755 "$RUNNER_TEMP/mcp-publisher"
+          "$RUNNER_TEMP/mcp-publisher" --version
+
+      - name: Validate the server metadata
+        run: $RUNNER_TEMP/mcp-publisher validate server.json
+
+      - name: Check for an existing exact registry version
+        id: registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$RUNNER_TEMP/registry-before.json"
+          version="${RELEASE_TAG#v}"
+          image="ghcr.io/masakaai/jet-browser-mcp:$version"
+          encoded_name="$(jq -rn --arg value "$MCP_SERVER_NAME" '$value | @uri')"
+          endpoint="$MCP_REGISTRY_URL/v0.1/servers/$encoded_name/versions/$version"
+          http_code="$(curl --silent --show-error --location \
+            --retry 3 --retry-all-errors \
+            --output "$response" \
+            --write-out '%{http_code}' \
+            "$endpoint")"
+          case "$http_code" in
+            200)
+              jq -e \
+                --arg name "$MCP_SERVER_NAME" \
+                --arg version "$version" \
+                --arg image "$image" \
+                "$REGISTRY_ACTIVE_FILTER" \
+                "$response" >/dev/null || { jq . "$response"; exit 1; }
+              echo 'already_published=true' >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo 'already_published=false' >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unexpected MCP Registry response: HTTP $http_code" >&2
+              jq . "$response" || true
+              exit 1
+              ;;
+          esac
+
+      - name: Authenticate to the MCP Registry
+        if: steps.registry.outputs.already_published != 'true'
+        run: $RUNNER_TEMP/mcp-publisher login github-oidc
+
+      - name: Publish server metadata to the MCP Registry
+        if: steps.registry.outputs.already_published != 'true'
+        run: $RUNNER_TEMP/mcp-publisher publish server.json
+
+      - name: Verify the exact public registry record
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          image="ghcr.io/masakaai/jet-browser-mcp:$version"
+          encoded_name="$(jq -rn --arg value "$MCP_SERVER_NAME" '$value | @uri')"
+          endpoint="$MCP_REGISTRY_URL/v0.1/servers/$encoded_name/versions/$version"
+          response="$RUNNER_TEMP/registry-after.json"
+          for attempt in {1..12}; do
+            http_code="$(curl --silent --show-error --location \
+              --retry 3 --retry-all-errors \
+              --output "$response" \
+              --write-out '%{http_code}' \
+              "$endpoint")"
+            if [[ "$http_code" == 200 ]]; then
+              jq -e \
+                --arg name "$MCP_SERVER_NAME" \
+                --arg version "$version" \
+                --arg image "$image" \
+                "$REGISTRY_ACTIVE_FILTER" \
+                "$response" >/dev/null || { jq . "$response"; exit 1; }
+              exit 0
+            elif [[ "$http_code" != 404 ]]; then
+              echo "Unexpected MCP Registry response: HTTP $http_code" >&2
+              jq . "$response" || true
+              exit 1
+            fi
+            sleep 5
+          done
+          jq . "$response"
+          exit 1

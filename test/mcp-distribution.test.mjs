@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -117,4 +118,63 @@ test('README VS Code install link preserves the reviewed MCP runtime boundary', 
       `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`,
     ],
   });
+});
+
+test('successful stable releases publish exact metadata to the official MCP Registry', async () => {
+  const [workflow, metadataText] = await Promise.all([
+    read('.github/workflows/publish-mcp-registry.yml'),
+    read('server.json'),
+  ]);
+  const metadata = JSON.parse(metadataText);
+  const image = metadata.packages.find(({ registryType }) => registryType === 'oci').identifier;
+  const filter = workflow.match(/^\s+REGISTRY_ACTIVE_FILTER: '(.+)'$/m)?.[1]?.replaceAll("''", "'");
+
+  assert.match(workflow, /^name: publish-mcp-registry$/m);
+  assert.match(workflow, /^  workflow_run:\s*\n\s+workflows: \[publish-container\]\s*\n\s+types: \[completed\]/m);
+  assert.match(workflow, /^  workflow_dispatch:/m);
+  assert.match(workflow, /github\.event\.workflow_run\.conclusion == 'success'/);
+  assert.match(workflow, /github\.event\.workflow_run\.event == 'release'/);
+  assert.match(workflow, /actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/);
+  assert.match(workflow, /^\s+contents: read$/m);
+  assert.match(workflow, /^\s+id-token: write$/m);
+  assert.doesNotMatch(workflow, /packages: write|attestations: write|pull-requests: write/);
+  assert.match(workflow, /MCP_PUBLISHER_VERSION: 1\.8\.1/);
+  assert.match(workflow, /MCP_PUBLISHER_SHA256: a06c9096dcb9727c13555b6be26c7effa707b01f06a4c561ba7a3635443cf2cc/);
+  assert.match(workflow, /mcp-publisher validate server\.json/);
+  assert.match(workflow, /mcp-publisher login github-oidc/);
+  assert.match(workflow, /mcp-publisher publish server\.json/);
+  assert.match(workflow, /servers\/\$encoded_name\/versions\/\$version/);
+  assert.match(workflow, /test "\$\(git rev-parse HEAD\)" = "\$EXPECTED_SHA"/);
+  assert.match(workflow, /sha256sum --check --strict/);
+  assert.ok(filter, 'workflow must define one reusable exact-record predicate');
+
+  const fixture = {
+    server: metadata,
+    _meta: {
+      'io.modelcontextprotocol.registry/official': {
+        status: 'active',
+        isLatest: true,
+      },
+    },
+  };
+  const evaluate = value => spawnSync('jq', [
+    '-e',
+    '--arg', 'name', metadata.name,
+    '--arg', 'version', metadata.version,
+    '--arg', 'image', image,
+    filter,
+  ], { input: JSON.stringify(value), encoding: 'utf8' });
+
+  assert.equal(evaluate(fixture).status, 0);
+  assert.notEqual(evaluate({ ...fixture, _meta: {
+    'io.modelcontextprotocol.registry/official': { status: 'deleted' },
+  } }).status, 0);
+  assert.notEqual(evaluate({ ...fixture, server: {
+    ...metadata,
+    packages: [{ ...metadata.packages[0], identifier: `${image}-wrong` }],
+  } }).status, 0);
+  assert.notEqual(evaluate({ ...fixture, server: {
+    ...metadata,
+    version: `${metadata.version}-wrong`,
+  } }).status, 0);
 });
