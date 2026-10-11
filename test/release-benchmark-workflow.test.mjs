@@ -50,4 +50,6 @@ test('release measurement uses the session strategy proven by the public smoke p
 
   assert.match(suite, /page_load_strategy: 'normal'/);
   assert.doesNotMatch(suite, /page_load_strategy: 'eager'/);
+  assert.match(suite, /\[\s*'run', '--rm', '-i', '--name', name, '--network=none'/);
+  assert.doesNotMatch(suite, /\['start', '-a', '-i', name\]/);
 });

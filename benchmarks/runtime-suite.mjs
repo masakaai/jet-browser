@@ -224,15 +224,15 @@ async function verifyCdpRuntime(url, { started, sampleMemory }) {
 }
 
 async function jetSample({ image, name }) {
-  await createContainer(name, image, [
+  const started = performance.now();
+  const child = spawn(process.env.DOCKER || 'docker', [
+    'run', '--rm', '-i', '--name', name, '--network=none', ...resourceArgs,
     '--cap-drop=ALL', '--cap-add=SETUID', '--cap-add=SETGID',
     '--security-opt=no-new-privileges', '--security-opt=systempaths=unconfined',
     '--security-opt=apparmor=unconfined',
     '--security-opt=seccomp=' + resolve('seccomp_profile.json'),
-    '--env=JET_BROWSER_SMOKE=1', '-i',
-  ]);
-  const started = performance.now();
-  const child = spawn(process.env.DOCKER || 'docker', ['start', '-a', '-i', name], { stdio: ['pipe', 'pipe', 'pipe'] });
+    '--env=JET_BROWSER_SMOKE=1', image,
+  ], { stdio: ['pipe', 'pipe', 'pipe'] });
   const lines = new LineQueue(child.stdout);
   let stderr = '';
   child.stderr.on('data', chunk => { stderr = (stderr + chunk).slice(-4000); });
