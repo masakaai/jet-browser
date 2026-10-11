@@ -195,6 +195,14 @@ docker run --rm -i --network=none --cap-drop=ALL \
 
 For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).
 
+Python applications can supervise the same container and ordered JSONL boundary without third-party packages:
+
+~~~bash
+python3 examples/python_quickstart.py
+~~~
+
+The [Python quickstart](./examples/python_quickstart.py) verifies native input, DOM state, a fresh PNG, and cleanup with browser networking disabled. The [Python supervisor guide](./integrations/python/README.md) documents the embedding API, resource limits, and the explicit double opt-in required before enabling public-web access.
+
 ## Why Jet Browser
 
 | Design choice | What it gives an agent system |
@@ -217,7 +225,7 @@ For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sd
 | Session state | Cookie and web-storage import/export helpers with explicit profile paths |
 | Downloads | Bounded download lifecycle and metadata |
 | Live viewing | Visual-frame and Live DOM components for an optional direct data plane |
-| Agent integration | Versioned JSON Schema tool declarations with collision checks |
+| Agent integration | Versioned JSON Schema tool declarations plus a dependency-free Python container supervisor |
 
 The standalone image contains only the browser runtime and operating-system libraries it needs. It does not install an application server, JavaScript package tree, database client, tunnel, payment SDK, or vendor agent framework.
 

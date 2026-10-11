@@ -23,6 +23,8 @@ jobs:
       - run: npm test
       - name: Test the Hermes plugin contract
         run: python3 -m unittest discover -s integrations/hermes/tests -v
+      - name: Test the Python supervisor contract
+        run: python3 -m unittest discover -s integrations/python/tests -v
       - run: cargo test --all-targets
 
   standalone:
@@ -41,6 +43,8 @@ jobs:
           pull: 'false'
       - name: Exercise the Docker-only quick start
         run: sh scripts/try-jet.sh
+      - name: Exercise the Python supervisor against the real runtime
+        run: python3 examples/python_quickstart.py --image jet-browser:ci
       - name: Exercise page isolation and bounded stability
         run: >-
           npm run stability --
@@ -85,6 +89,8 @@ jobs:
           image: jet-browser:arm64
           pull: 'false'
           platform: linux/arm64
+      - name: Exercise the Python supervisor on native ARM64
+        run: python3 examples/python_quickstart.py --image jet-browser:arm64 --platform linux/arm64
       - name: Build the native ARM64 MCP verifier
         run: |
           docker build -f Dockerfile.mcp -t jet-browser-mcp:arm64 \
