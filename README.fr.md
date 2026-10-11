@@ -16,7 +16,7 @@ Docker suffit pour vérifier le moteur : aucun clonage, Node.js, compte, clé AP
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-Le [script vérifiable](./scripts/try-jet.sh) télécharge la politique seccomp liée à la version, vérifie son SHA-256, récupère l’image attestée `linux/amd64` par digest immuable et teste le démarrage, la saisie native, l’état du DOM et la capture PNG. Il utilise un conteneur jetable, limité en ressources et sans réseau, sans monter le socket Docker ni un répertoire hôte. Les hôtes ARM nécessitent actuellement l’émulation amd64 de Docker.
+Le [script vérifiable](./scripts/try-jet.sh) télécharge la politique seccomp liée à la version, vérifie son SHA-256, sélectionne nativement `linux/amd64` ou `linux/arm64` depuis l’image multiplateforme immuable et teste le démarrage, la saisie native, l’état du DOM et la capture PNG. Il utilise un conteneur jetable, limité en ressources et sans réseau, sans monter le socket Docker ni un répertoire hôte.
 
 ## Benchmark reproductible du runtime
 

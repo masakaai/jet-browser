@@ -13,6 +13,7 @@ import binascii
 import hashlib
 import json
 import os
+import platform
 import re
 import selectors
 import shutil
@@ -27,7 +28,7 @@ from typing import Any, Callable
 
 _IMAGE = (
     "ghcr.io/masakaai/jet-browser@"
-    "sha256:540a1fec531bf71b62c2c2d030c033249955ffc192ab7e0e7a1ac8d8412a661b"
+    "sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec"
 )
 _TARGET = "http://127.0.0.1:8080/"
 _INPUT_TEXT = "open-source runtime"
@@ -66,6 +67,15 @@ def _docker_available() -> bool:
     return shutil.which("docker") is not None
 
 
+def _native_platform() -> str:
+    machine = platform.machine().lower()
+    if machine in {"x86_64", "amd64"}:
+        return "linux/amd64"
+    if machine in {"aarch64", "arm64"}:
+        return "linux/arm64"
+    raise RuntimeError(f"unsupported host architecture: {machine or 'unknown'}")
+
+
 def _docker_command(container_name: str) -> list[str]:
     seccomp = Path(__file__).with_name("seccomp_profile.json").resolve()
     return [
@@ -75,7 +85,7 @@ def _docker_command(container_name: str) -> list[str]:
         "-i",
         "--name",
         container_name,
-        "--platform=linux/amd64",
+        f"--platform={_native_platform()}",
         "--network=none",
         "--cap-drop=ALL",
         "--cap-add=SETUID",

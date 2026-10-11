@@ -1,10 +1,10 @@
 #!/bin/sh
 set -eu
 
-JET_BROWSER_VERSION='0.8.0'
-JET_BROWSER_IMAGE_DIGEST='sha256:0aeb9144beba4ca9a2445e653fe42d6ea525b9fee41bc78c05d468ffd6daaa4b'
+JET_BROWSER_VERSION='0.9.0'
+JET_BROWSER_IMAGE_DIGEST='sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec'
 JET_BROWSER_IMAGE="ghcr.io/masakaai/jet-browser@${JET_BROWSER_IMAGE_DIGEST}"
-JET_BROWSER_PLATFORM='linux/amd64'
+JET_BROWSER_PLATFORM=${JET_BROWSER_PLATFORM:-}
 JET_BROWSER_SECCOMP_SHA256='5f4c3f92d6cf19fd6dfbbd4197e5a63546866ff8c1a3998e5c99bc589b2fcf11'
 JET_BROWSER_SECCOMP_URL="https://raw.githubusercontent.com/masakaai/jet-browser/v${JET_BROWSER_VERSION}/seccomp_profile.json"
 
@@ -27,6 +27,18 @@ fi
 
 docker info >/dev/null 2>&1 || fail 'Docker is installed but its daemon is not available'
 
+if [ -z "$JET_BROWSER_PLATFORM" ]; then
+  case "$(uname -m)" in
+    x86_64|amd64) JET_BROWSER_PLATFORM='linux/amd64' ;;
+    aarch64|arm64) JET_BROWSER_PLATFORM='linux/arm64' ;;
+    *) fail "unsupported host architecture: $(uname -m)" ;;
+  esac
+fi
+case "$JET_BROWSER_PLATFORM" in
+  linux/amd64|linux/arm64) ;;
+  *) fail 'JET_BROWSER_PLATFORM must be linux/amd64 or linux/arm64' ;;
+esac
+
 jet_try_tmp_root=${TMPDIR:-/tmp}
 jet_try_directory=$(mktemp -d "${jet_try_tmp_root%/}/jet-browser-try.XXXXXX")
 jet_try_seccomp="$jet_try_directory/seccomp_profile.json"
@@ -45,7 +57,7 @@ printf 'Downloading the pinned Jet Browser security policy...\n'
 curl -fsSL "$JET_BROWSER_SECCOMP_URL" -o "$jet_try_seccomp" || fail 'could not download the security policy'
 jet_try_actual_sha=$(sha256_file "$jet_try_seccomp")
 if [ "$jet_try_actual_sha" != "$JET_BROWSER_SECCOMP_SHA256" ]; then
-  fail 'security policy checksum did not match the v0.8.0 release'
+  fail 'security policy checksum did not match the v0.9.0 release'
 fi
 
 printf 'Pulling %s for %s...\n' "$JET_BROWSER_IMAGE" "$JET_BROWSER_PLATFORM"

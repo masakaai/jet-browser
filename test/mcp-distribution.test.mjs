@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises';
 const read = path => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('MCP OCI package is registry-owned, network-disabled, and version-aligned', async () => {
-  const [dockerfile, metadataText, packageText, workflow, readme, smoke, runtimeConfig, renderer] = await Promise.all([
+  const [dockerfile, metadataText, packageText, workflow, readme, smoke, runtimeConfig, renderer, verifiedReleaseText] = await Promise.all([
     read('Dockerfile.mcp'),
     read('server.json'),
     read('package.json'),
@@ -14,12 +14,16 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
     read('scripts/mcp-container-smoke.mjs'),
     read('integrations/mcp/runtime-config.mjs'),
     read('scripts/render-mcp-runtime-config.mjs'),
+    read('scripts/verified-release.json'),
   ]);
   const metadata = JSON.parse(metadataText);
   const packageJson = JSON.parse(packageText);
+  const verifiedRelease = JSON.parse(verifiedReleaseText);
   const mcpPackage = metadata.packages[0];
 
   assert.equal(metadata.name, 'io.github.masakaai/jet-browser');
+  assert.match(verifiedRelease.mcpImageDigest, /^sha256:[a-f0-9]{64}$/);
+  assert.deepEqual(Object.keys(verifiedRelease.mcpPlatformDigests).sort(), ['linux/amd64', 'linux/arm64']);
   assert.equal(metadata.version, packageJson.version);
   assert.ok(metadata.description.length <= 100);
   assert.equal(mcpPackage.registryType, 'oci');
@@ -54,7 +58,10 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.match(smoke, /linux\/arm64/);
   assert.match(smoke, /leftoverVerifierContainers/);
   assert.match(smoke, /type=bind,src=\/var\/run\/docker\.sock,dst=\/var\/run\/docker\.sock/);
-  assert.match(runtimeConfig, /JET_BROWSER_PLATFORM = 'linux\/amd64'/);
+  assert.match(runtimeConfig, new RegExp(`JET_BROWSER_IMAGE = 'ghcr\\.io/masakaai/jet-browser@${verifiedRelease.runtimeImageDigest}'`));
+  assert.match(runtimeConfig, /process\.arch/);
+  assert.match(runtimeConfig, /x64: 'linux\/amd64'/);
+  assert.match(runtimeConfig, /arm64: 'linux\/arm64'/);
   assert.match(renderer, /linux\\\/\(amd64\|arm64\)/);
 });
 

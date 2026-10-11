@@ -1,5 +1,14 @@
 {
-  "version": "0.8.0",
-  "runtimeImageDigest": "sha256:0aeb9144beba4ca9a2445e653fe42d6ea525b9fee41bc78c05d468ffd6daaa4b",
+  "version": "0.9.0",
+  "runtimeImageDigest": "sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec",
+  "runtimePlatformDigests": {
+    "linux/amd64": "sha256:c4cfef1a851c3b3093cc974211ea5c18e08cc06be4d47c34082ef2ac7d2961db",
+    "linux/arm64": "sha256:61ae553f6192928896112139aca9ea7dd097b6ded758ec9235a9b22d52d1f5eb"
+  },
+  "mcpImageDigest": "sha256:daceafc8f85555c4b0bf9ccc8c27275409f904124865e927258d424c5021604a",
+  "mcpPlatformDigests": {
+    "linux/amd64": "sha256:06cd27316689bc40b7dde186024e7ec29a3a1593e6c2bac7d295a47dd06de56f",
+    "linux/arm64": "sha256:718ca553fe09728dd9d75c60106a0d643fb4688f14de872fa92dd35ba427b4c3"
+  },
   "seccompSha256": "5f4c3f92d6cf19fd6dfbbd4197e5a63546866ff8c1a3998e5c99bc589b2fcf11"
 }

@@ -68,12 +68,12 @@ Docker only—no clone, Node.js, account, API key, or outbound browser network:
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-The [reviewable script](./scripts/try-jet.sh) downloads the release-pinned seccomp policy, verifies its SHA-256, pulls the attested `linux/amd64` image by immutable digest, and exercises browser startup, native input, DOM state, and PNG capture. It starts a disposable, resource-bounded container with networking disabled and does not mount the Docker socket or a host directory.
+The [reviewable script](./scripts/try-jet.sh) downloads the release-pinned seccomp policy, verifies its SHA-256, selects native `linux/amd64` or `linux/arm64` from the immutable multi-platform image, and exercises browser startup, native input, DOM state, and PNG capture. It starts a disposable, resource-bounded container with networking disabled and does not mount the Docker socket or a host directory.
 
 Successful output ends with:
 
 ~~~json
-{"status":"passed","version":"0.8.0","network":"disabled","nativeInput":"verified","dom":"verified","screenshot":"verified PNG"}
+{"status":"passed","version":"0.9.0","network":"disabled","nativeInput":"verified","dom":"verified","screenshot":"verified PNG"}
 ~~~
 
 The full source checkout and SDK paths below require Docker and Node.js 24+.

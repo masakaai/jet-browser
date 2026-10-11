@@ -10,7 +10,7 @@ inputs:
   image:
     description: Public or locally built Jet Browser image to verify.
     required: false
-    default: ghcr.io/masakaai/jet-browser:0.9.0
+    default: ghcr.io/masakaai/jet-browser@sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec
   pull:
     description: Pull the image before verification; set to false for an existing local image.
     required: false

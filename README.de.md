@@ -16,7 +16,7 @@ Für den Nachweis genügt Docker—kein Klonen, Node.js, Konto, API-Schlüssel o
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-Das [prüfbare Skript](./scripts/try-jet.sh) lädt die releasegebundene Seccomp-Richtlinie, prüft ihre SHA-256-Summe, zieht das attestierte `linux/amd64`-Image per unveränderlichem Digest und testet Browserstart, native Eingabe, DOM-Status und PNG-Aufnahme. Es verwendet einen kurzlebigen, ressourcenbegrenzten Container ohne Netzwerk und bindet weder den Docker-Socket noch ein Host-Verzeichnis ein. ARM-Hosts benötigen derzeit die amd64-Emulation von Docker.
+Das [prüfbare Skript](./scripts/try-jet.sh) lädt die releasegebundene Seccomp-Richtlinie, prüft ihre SHA-256-Summe, wählt aus dem unveränderlichen Multi-Plattform-Image nativ `linux/amd64` oder `linux/arm64` und testet Browserstart, native Eingabe, DOM-Status und PNG-Aufnahme. Es verwendet einen kurzlebigen, ressourcenbegrenzten Container ohne Netzwerk und bindet weder den Docker-Socket noch ein Host-Verzeichnis ein.
 
 ## Reproduzierbarer Laufzeit-Benchmark
 

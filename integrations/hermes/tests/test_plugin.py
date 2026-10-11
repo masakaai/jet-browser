@@ -150,6 +150,15 @@ class VerificationTests(unittest.TestCase):
         self.assertIn("--security-opt=no-new-privileges", command)
         self.assertNotIn("--privileged", command)
 
+    def test_docker_command_selects_the_native_release_platform(self) -> None:
+        with mock.patch.object(plugin.platform, "machine", return_value="x86_64"):
+            self.assertIn("--platform=linux/amd64", plugin._docker_command("amd64-test"))
+        with mock.patch.object(plugin.platform, "machine", return_value="aarch64"):
+            self.assertIn("--platform=linux/arm64", plugin._docker_command("arm64-test"))
+        with mock.patch.object(plugin.platform, "machine", return_value="riscv64"):
+            with self.assertRaisesRegex(RuntimeError, "unsupported host architecture"):
+                plugin._docker_command("unsupported-test")
+
     def test_register_declares_one_bounded_tool(self) -> None:
         ctx = mock.Mock()
         plugin.register(ctx)

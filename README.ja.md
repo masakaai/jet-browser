@@ -16,7 +16,7 @@ Jet Browser は実際の WPE WebKit ブラウザーと Rust WebDriver ブリッ�
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-[確認可能なスクリプト](./scripts/try-jet.sh)は、リリースに固定された seccomp ポリシーをダウンロードして SHA-256 を検証し、変更不可能な digest で attest 済みの `linux/amd64` イメージを取得します。そのうえで、ブラウザー起動、ネイティブ入力、DOM 状態、PNG キャプチャを検証します。ネットワークを無効化した使い捨てのリソース制限コンテナーを使い、Docker ソケットやホストディレクトリはマウントしません。ARM ホストでは現在 Docker の amd64 エミュレーションが必要です。
+[確認可能なスクリプト](./scripts/try-jet.sh)は、リリースに固定された seccomp ポリシーをダウンロードして SHA-256 を検証し、変更不可能なマルチプラットフォームイメージからネイティブの `linux/amd64` または `linux/arm64` を選択します。そのうえで、ブラウザー起動、ネイティブ入力、DOM 状態、PNG キャプチャを検証します。ネットワークを無効化した使い捨てのリソース制限コンテナーを使い、Docker ソケットやホストディレクトリはマウントしません。
 
 ## 再現可能なランタイムベンチマーク
 

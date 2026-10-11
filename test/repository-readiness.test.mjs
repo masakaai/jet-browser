@@ -94,6 +94,7 @@ test('localized READMEs lead with the Docker-only one-command proof', async () =
     assert.match(readme.slice(quickStart, commandIndex), /Docker/);
     assert.match(proof, /\[.+\]\(\.\/scripts\/try-jet\.sh\)/);
     assert.match(proof, /linux\/amd64/);
+    assert.match(proof, /linux\/arm64/);
   }
 });
 
@@ -180,12 +181,13 @@ test('the root action runs the published runtime smoke flow without user secrets
   const workflow = await readFile(resolve(root, '.github/workflows/ci.yml'), 'utf8');
   const readme = await readFile(resolve(root, 'README.md'), 'utf8');
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
+  const verifiedRelease = JSON.parse(await readFile(resolve(root, 'scripts/verified-release.json'), 'utf8'));
 
   assert.match(action, /^name: Jet Browser Runtime Smoke Test$/m);
   assert.match(action, /^  using: composite$/m);
   assert.match(action, /uses: actions\/setup-node@[0-9a-f]{40}/);
   assert.match(action, /node-version: 24/);
-  assert.match(action, new RegExp(`default: ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
+  assert.match(action, new RegExp(`default: ghcr\\.io/masakaai/jet-browser@${verifiedRelease.runtimeImageDigest}`));
   assert.match(action, /^  platform:\n[\s\S]*?default: ''/m);
   assert.match(action, /uname -m/);
   assert.match(action, /x86_64\) platform=linux\/amd64/);

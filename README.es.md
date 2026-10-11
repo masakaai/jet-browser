@@ -16,7 +16,7 @@ Para comprobar el runtime solo hace falta Docker: sin clonar, Node.js, cuenta, c
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-El [script revisable](./scripts/try-jet.sh) descarga la política seccomp fijada a la versión, verifica su SHA-256, obtiene la imagen `linux/amd64` atestada por digest inmutable y prueba el arranque, la entrada nativa, el estado del DOM y la captura PNG. Usa un contenedor desechable, limitado en recursos y sin red, sin montar el socket de Docker ni directorios del host. Por ahora, los hosts ARM necesitan la emulación amd64 de Docker.
+El [script revisable](./scripts/try-jet.sh) descarga la política seccomp fijada a la versión, verifica su SHA-256, selecciona `linux/amd64` o `linux/arm64` nativo desde la imagen multiplataforma inmutable y prueba el arranque, la entrada nativa, el estado del DOM y la captura PNG. Usa un contenedor desechable, limitado en recursos y sin red, sin montar el socket de Docker ni directorios del host.
 
 ## Benchmark reproducible del runtime
 

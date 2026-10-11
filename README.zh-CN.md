@@ -40,7 +40,7 @@ Jet Browser 在 **1,445.25 ms** 内到达已验证页面，活动内存快照中
 curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh
 ~~~
 
-[可审查脚本](./scripts/try-jet.sh)会下载与 release 绑定的 seccomp policy、校验 SHA-256、按不可变 digest 拉取带 provenance 的 `linux/amd64` 镜像，并验证浏览器启动、原生输入、DOM 状态与 PNG 截图。它运行一个关闭网络、限制资源的临时容器，不挂载 Docker socket 或宿主机目录。ARM 主机目前需要 Docker 的 amd64 模拟。
+[可审查脚本](./scripts/try-jet.sh)会下载与 release 绑定的 seccomp policy、校验 SHA-256，并从不可变的多平台镜像中原生选择 `linux/amd64` 或 `linux/arm64`，再验证浏览器启动、原生输入、DOM 状态与 PNG 截图。它运行一个关闭网络、限制资源的临时容器，不挂载 Docker socket 或宿主机目录。
 
 ### 2. 安装编码 Agent 插件
 

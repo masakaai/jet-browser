@@ -42,8 +42,8 @@ The tool returns JSON shaped like:
 
 ## Security and operational boundaries
 
-- The OCI image is pinned to an immutable digest and currently targets
-  `linux/amd64`.
+- The OCI image is pinned to an immutable multi-platform digest. The plugin
+  selects native `linux/amd64` or `linux/arm64` execution from the host architecture.
 - Docker may contact GitHub Container Registry the first time it needs the
   pinned image. The browser container itself runs with networking disabled.
 - The container drops all capabilities before selectively restoring only

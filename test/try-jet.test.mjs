@@ -59,30 +59,41 @@ case "$1" in
   *) exit 9 ;;
 esac
 `);
+    await writeExecutable(join(bin, 'uname'), `#!/bin/sh
+printf '%s\n' "$JET_BROWSER_TEST_ARCH"
+`);
 
-    const result = await run('sh', ['-c', 'cat scripts/try-jet.sh | sh'], {
-      cwd: root,
-      env: {
-        ...process.env,
-        PATH: `${bin}${delimiter}${process.env.PATH}`,
-        JET_BROWSER_TEST_LOG: log,
-        JET_BROWSER_TEST_SECCOMP: join(root, 'seccomp_profile.json'),
-      },
-    });
+    for (const { arch, platform } of [
+      { arch: 'x86_64', platform: 'linux/amd64' },
+      { arch: 'arm64', platform: 'linux/arm64' },
+    ]) {
+      await writeFile(log, '');
+      const result = await run('sh', ['-c', 'cat scripts/try-jet.sh | sh'], {
+        cwd: root,
+        env: {
+          ...process.env,
+          PATH: `${bin}${delimiter}${process.env.PATH}`,
+          JET_BROWSER_TEST_ARCH: arch,
+          JET_BROWSER_TEST_LOG: log,
+          JET_BROWSER_TEST_SECCOMP: join(root, 'seccomp_profile.json'),
+        },
+      });
 
-    assert.equal(result.code, 0, result.stderr);
-    assert.match(result.stdout, /"status":"passed"/);
-    assert.match(result.stdout, /"network":"disabled"/);
-    assert.match(result.stdout, /"nativeInput":"verified"/);
-    assert.match(result.stdout, /"screenshot":"verified PNG"/);
+      assert.equal(result.code, 0, result.stderr);
+      assert.match(result.stdout, /"status":"passed"/);
+      assert.match(result.stdout, /"version":"0\.9\.0"/);
+      assert.match(result.stdout, /"network":"disabled"/);
+      assert.match(result.stdout, /"nativeInput":"verified"/);
+      assert.match(result.stdout, /"screenshot":"verified PNG"/);
 
-    const calls = await readFile(log, 'utf8');
-    assert.match(calls, /^info$/m);
-    assert.match(calls, /^pull --platform=linux\/amd64 ghcr\.io\/masakaai\/jet-browser@sha256:0aeb9144beba4ca9a2445e653fe42d6ea525b9fee41bc78c05d468ffd6daaa4b$/m);
-    assert.match(calls, /run --rm -i --name jet-browser-try-[0-9]+ --platform=linux\/amd64 --network=none --cap-drop=ALL/);
-    assert.match(calls, /--security-opt=no-new-privileges/);
-    assert.match(calls, /--security-opt=seccomp=.*seccomp_profile\.json/);
-    assert.doesNotMatch(calls, /--privileged|docker\.sock|--network=(?!none)/);
+      const calls = await readFile(log, 'utf8');
+      assert.match(calls, /^info$/m);
+      assert.match(calls, new RegExp(`^pull --platform=${platform} ghcr\\.io/masakaai/jet-browser@sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec$`, 'm'));
+      assert.match(calls, new RegExp(`run --rm -i --name jet-browser-try-[0-9]+ --platform=${platform} --network=none --cap-drop=ALL`));
+      assert.match(calls, /--security-opt=no-new-privileges/);
+      assert.match(calls, /--security-opt=seccomp=.*seccomp_profile\.json/);
+      assert.doesNotMatch(calls, /--privileged|docker\.sock|--network=(?!none)/);
+    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -136,6 +147,7 @@ test('Docker-only try script and README stay pinned to the released image', asyn
   const releaseVersion = script.match(/^JET_BROWSER_VERSION='(\d+\.\d+\.\d+)'$/m)?.[1];
 
   assert.equal(releaseVersion, verifiedRelease.version);
+  assert.deepEqual(Object.keys(verifiedRelease.runtimePlatformDigests).sort(), ['linux/amd64', 'linux/arm64']);
   assert.match(script, /JET_BROWSER_SECCOMP_URL="https:\/\/raw\.githubusercontent\.com\/masakaai\/jet-browser\/v\$\{JET_BROWSER_VERSION\}\/seccomp_profile\.json"/);
   assert.match(script, new RegExp(`JET_BROWSER_IMAGE_DIGEST='${verifiedRelease.runtimeImageDigest}'`));
   assert.match(script, /ghcr\.io\/masakaai\/jet-browser@\$\{JET_BROWSER_IMAGE_DIGEST\}/);

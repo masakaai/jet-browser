@@ -76,7 +76,7 @@ A successful call returns structured content like:
   "title": "Jet Browser Ready",
   "input": "open-source runtime",
   "screenshotBytes": 2048,
-  "image": "ghcr.io/masakaai/jet-browser@sha256:540a1fec531bf71b62c2c2d030c033249955ffc192ab7e0e7a1ac8d8412a661b"
+  "image": "ghcr.io/masakaai/jet-browser@sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec"
 }
 ~~~
 
@@ -93,8 +93,7 @@ node --test test/mcp-server.test.mjs
 The repository's standalone CI remains the end-to-end runtime proof. To execute that same Docker acceptance locally:
 
 ~~~bash
-DOCKER_DEFAULT_PLATFORM=linux/amd64 \
-JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser@sha256:540a1fec531bf71b62c2c2d030c033249955ffc192ab7e0e7a1ac8d8412a661b \
+JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser@sha256:5884204e128a3e5bb17634078affdf28d1933d2745752cee3bc74235ed316cec \
 npm run standalone:smoke
 ~~~
 
