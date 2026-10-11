@@ -28,6 +28,11 @@ test('release benchmark records the same public image on native AMD64 and ARM64 
   assert.match(workflow, /--warmups=1/);
   assert.match(workflow, /--jet-commit="\$source_commit"/);
   assert.match(workflow, /--jet-image="\$RELEASE_IMAGE@\$MANIFEST_DIGEST"/);
+  assert.match(workflow, /benchmark_status=\$\?/);
+  assert.match(workflow, /\.implementations\.jet\.samples\[\] \| select\(\.status != "passed"\)/);
+  assert.match(workflow, /error=\\\(\.error \/\/ "unknown"\)/);
+  assert.match(workflow, /if: always\(\)/);
+  assert.match(workflow, /name: Validate the native benchmark report/);
   assert.match(workflow, /validateRuntimeReport/);
   assert.match(workflow, /releaseTag/);
   assert.match(workflow, /manifestDigest/);
