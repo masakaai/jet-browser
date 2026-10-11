@@ -240,40 +240,37 @@ async function jetSample({ image, name }) {
     child.once('error', reject);
       child.once('close', code => code ? reject(Error(`Jet Browser exited ${code}: ${stderr}`)) : resolvePromise());
   });
-  const commands = [
-    { op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' },
-    { op: 'navigate', url: 'http://127.0.0.1:8080/' },
-    { op: 'title' },
-    { op: 'evaluate', expression: "({title:document.title,marker:document.querySelector('#result')?.id||null})" },
-    { op: 'evaluate', expression: 'document.title' },
-    { op: 'screenshot' },
-    { op: 'evaluate', expression: '(()=>{const until=Date.now()+5000;while(Date.now()<until){};return true})()' },
-    { op: 'close' },
-  ];
-  child.stdin.end(commands.map(commandValue => JSON.stringify(commandValue)).join('\n') + '\n');
   const receive = async () => {
     const response = JSON.parse(await lines.next());
     if (!response.ok) throw Error(response.error || 'Jet Browser command failed');
     return response.value;
   };
+  const send = async commandValue => {
+    await new Promise((resolvePromise, reject) => {
+      child.stdin.write(JSON.stringify(commandValue) + '\n', error => error ? reject(error) : resolvePromise());
+    });
+    return receive();
+  };
   try {
-    await receive();
-    await receive();
-    const title = await receive();
-    const verified = await receive();
+    await send({ op: 'create', proxy: null, profile_dir: null, page_load_strategy: 'none' });
+    await send({ op: 'navigate', url: 'http://127.0.0.1:8080/' });
+    const title = await send({ op: 'title' });
+    const verified = await send({ op: 'evaluate', expression: "({title:document.title,marker:document.querySelector('#result')?.id||null})" });
     const value = verified?.result?.value ?? verified?.value ?? verified;
     if (title !== 'Jet Browser Ready' || value?.title !== title || value.marker !== 'result') throw Error('Jet Browser fixture verification failed');
     const browserReadyMs = Number((performance.now() - started).toFixed(2));
-    const check = await receive();
+    const check = await send({ op: 'evaluate', expression: 'document.title' });
     const checkValue = check?.result?.value ?? check?.value ?? check;
     if (checkValue !== title) throw Error('Jet Browser script verification failed');
-    const screenshot = await receive();
+    const screenshot = await send({ op: 'screenshot' });
     if (Buffer.from(screenshot || '', 'base64').length < 1000) throw Error('Jet Browser screenshot verification failed');
+    const heldPromise = send({ op: 'evaluate', expression: '(()=>{const until=Date.now()+5000;while(Date.now()<until){};return true})()' });
     const memory = await activeMemoryMiB(name);
-    const held=await receive();
-    const heldValue=held?.result?.value ?? held?.value ?? held;
-    if(heldValue!==true)throw Error('Jet Browser memory sampling hold failed');
-    await receive();
+    const held = await heldPromise;
+    const heldValue = held?.result?.value ?? held?.value ?? held;
+    if (heldValue !== true) throw Error('Jet Browser memory sampling hold failed');
+    await send({ op: 'close' });
+    child.stdin.end();
     await completion;
     return { status: 'passed', browserReadyMs, scriptVerified: true, activeMemoryMiB: memory };
   } finally {
