@@ -31,6 +31,10 @@ test('repository exposes matching local and plugin skills through the MASAKA mar
   assert.equal(codex.name,'jet-browser');
   assert.equal(portable.version,codex.version);
   assert.equal(localSkill,pluginSkill);
+  assert.match(readme,/https:\/\/www\.skills\.sh\/masakaai\/jet-browser\/jet-browser/);
+  assert.match(readme,/npx skills add masakaai\/jet-browser --skill jet-browser/);
+  assert.match(readme,/npx skills update jet-browser -p/);
+  assert.match(readme,/## Let your coding agent verify it[\s\S]*npx skills add masakaai\/jet-browser --skill jet-browser[\s\S]*npx skills update jet-browser -p[\s\S]*## Quick start/);
   assert.match(readme,/codex plugin marketplace add masakaai\/jet-browser --ref main/);
   assert.match(readme,/codex plugin add jet-browser@masaka/);
   assert.match(readme,/claude plugin marketplace add masakaai\/jet-browser/);

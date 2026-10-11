@@ -23,6 +23,7 @@ Bring any harness or deterministic test runner. No account, API key, model, data
   <a href="https://masaka-ai.vercel.app/jet-browser/tech-report/">Technical report</a> ·
   <a href="https://github.com/marketplace/actions/jet-browser-runtime-smoke-test">GitHub Marketplace Action</a> ·
   <a href="https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.masakaai%2Fjet-browser">Official MCP Registry</a> ·
+  <a href="https://www.skills.sh/masakaai/jet-browser/jet-browser">Agent Skill</a> ·
   <a href="./integrations/hermes/README.md">Hermes integration</a> ·
   <a href="./integrations/mcp/README.md">MCP verifier</a> ·
   <a href="./docs/benchmarks.md">Method</a> ·
@@ -56,7 +57,7 @@ Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of act
 Paste this single line into Codex, Claude Code, or another repository-aware coding agent. GitHub code blocks include a one-click copy action.
 
 ~~~text
-Install or upgrade Jet Browser to the latest main for this repository from https://github.com/masakaai/jet-browser. Read README.md and use its native marketplace instructions when Codex or Claude Code plugin commands are available; otherwise register .agents/skills/jet-browser/SKILL.md as a repository skill. Confirm Docker is available, run curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh, and report whether browser startup, native input, DOM verification, and PNG capture passed. Do not attach to my daily Chrome profile or start a persistent Chrome daemon. Only source builds require Node.js 24+; follow docs/demo.md if setup or verification fails.
+Install or upgrade Jet Browser to the latest main for this repository from https://github.com/masakaai/jet-browser. If the skill is not installed, run `npx skills add masakaai/jet-browser --skill jet-browser`; if it is already installed, run `npx skills update jet-browser -p`. If the Skills CLI is unavailable, use the native Codex or Claude Code marketplace instructions in README.md, or register .agents/skills/jet-browser/SKILL.md as a repository skill. Confirm Docker is available, run curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh, and report whether browser startup, native input, DOM verification, and PNG capture passed. Do not attach to my daily Chrome profile or start a persistent Chrome daemon. Only source builds require Node.js 24+; follow docs/demo.md if setup or verification fails.
 ~~~
 
 ## Quick start
@@ -80,6 +81,18 @@ Successful output ends with:
 The full source checkout and SDK paths below require Docker and Node.js 24+.
 
 ### 2. Install the coding-agent plugin
+
+Any supported coding agent through the open Skills CLI:
+
+~~~bash
+npx skills add masakaai/jet-browser --skill jet-browser
+~~~
+
+Already installed? Upgrade only the project skill:
+
+~~~bash
+npx skills update jet-browser -p
+~~~
 
 Codex:
 
@@ -123,7 +136,7 @@ VS Code opens a review prompt before adding the server. The link uses VS Code's 
 
 Cursor users can [install this exact configuration in one click](https://cursor.com/link/mcp/install?name=jet-browser&config=eyJjb21tYW5kIjoiZG9ja2VyIiwiYXJncyI6WyJydW4iLCItLXJtIiwiLWkiLCItLW5ldHdvcms9bm9uZSIsIi0tbW91bnQiLCJ0eXBlPWJpbmQsc3JjPS92YXIvcnVuL2RvY2tlci5zb2NrLGRzdD0vdmFyL3J1bi9kb2NrZXIuc29jayIsImdoY3IuaW8vbWFzYWthYWkvamV0LWJyb3dzZXItbWNwOjAuOS4wIl19). Cursor opens a review prompt before adding it; the Docker-socket warning below still applies.
 
-The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
+The Skills CLI, Codex, and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
 
 The [Hermes plugin](./integrations/hermes/README.md) registers one bounded verification tool that runs the immutable public image with browser networking disabled and returns startup, native-input, DOM, and PNG evidence. It is deliberately a runtime verifier rather than a CDP browser provider.
 
