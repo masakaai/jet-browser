@@ -129,16 +129,17 @@ exit 0
 });
 
 test('Docker-only try script and README stay pinned to the released image', async () => {
-  const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   const script = await readFile(join(root, 'scripts/try-jet.sh'), 'utf8');
+  const verifiedRelease = JSON.parse(await readFile(join(root, 'scripts/verified-release.json'), 'utf8'));
   const readme = await readFile(join(root, 'README.md'), 'utf8');
   const workflow = await readFile(join(root, '.github/workflows/ci.yml'), 'utf8');
-  const escaped = packageJson.version.replaceAll('.', '\\.');
+  const releaseVersion = script.match(/^JET_BROWSER_VERSION='(\d+\.\d+\.\d+)'$/m)?.[1];
 
-  assert.match(script, new RegExp(`JET_BROWSER_VERSION='${escaped}'`));
-  assert.match(script, /JET_BROWSER_IMAGE_DIGEST='sha256:0aeb9144beba4ca9a2445e653fe42d6ea525b9fee41bc78c05d468ffd6daaa4b'/);
+  assert.equal(releaseVersion, verifiedRelease.version);
+  assert.match(script, /JET_BROWSER_SECCOMP_URL="https:\/\/raw\.githubusercontent\.com\/masakaai\/jet-browser\/v\$\{JET_BROWSER_VERSION\}\/seccomp_profile\.json"/);
+  assert.match(script, new RegExp(`JET_BROWSER_IMAGE_DIGEST='${verifiedRelease.runtimeImageDigest}'`));
   assert.match(script, /ghcr\.io\/masakaai\/jet-browser@\$\{JET_BROWSER_IMAGE_DIGEST\}/);
-  assert.match(script, /5f4c3f92d6cf19fd6dfbbd4197e5a63546866ff8c1a3998e5c99bc589b2fcf11/);
+  assert.match(script, new RegExp(`JET_BROWSER_SECCOMP_SHA256='${verifiedRelease.seccompSha256}'`));
   assert.match(readme, /scripts\/try-jet\.sh/);
   assert.match(readme, /Docker only—no clone, Node\.js, account, API key, or outbound browser network/);
   assert.match(workflow, /run: sh scripts\/try-jet\.sh/);

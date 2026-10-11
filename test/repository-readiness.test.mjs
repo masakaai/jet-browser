@@ -168,7 +168,10 @@ test('stable releases publish and verify native multi-arch images from the relea
 
   assert.match(readme, new RegExp(`ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
   assert.doesNotMatch(readme, /ghcr\.io\/masakaai\/jet-browser:latest/);
-  assert.match(readme, /--platform=linux\/amd64/);
+  assert.match(readme, /linux\/amd64/);
+  assert.match(readme, /linux\/arm64/);
+  assert.match(readme, /multi-platform manifest/);
+  assert.doesNotMatch(readme, /docker pull --platform=linux\/amd64/);
   assert.match(readme, /Published from a tagged GitHub release/);
 });
 
@@ -183,10 +186,14 @@ test('the root action runs the published runtime smoke flow without user secrets
   assert.match(action, /uses: actions\/setup-node@[0-9a-f]{40}/);
   assert.match(action, /node-version: 24/);
   assert.match(action, new RegExp(`default: ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
-  assert.match(action, /^  platform:\n[\s\S]*?default: linux\/amd64/m);
+  assert.match(action, /^  platform:\n[\s\S]*?default: ''/m);
+  assert.match(action, /uname -m/);
+  assert.match(action, /x86_64\) platform=linux\/amd64/);
+  assert.match(action, /aarch64\|arm64\) platform=linux\/arm64/);
+  assert.match(action, /steps\.resolve-platform\.outputs\.platform/);
   assert.match(action, /docker pull --platform="\$JET_BROWSER_PLATFORM" "\$JET_BROWSER_IMAGE"/);
   assert.match(action, /node "\$GITHUB_ACTION_PATH\/scripts\/standalone-smoke\.mjs" --no-build/);
-  assert.match(action, /DOCKER_DEFAULT_PLATFORM: \$\{\{ inputs\.platform \}\}/);
+  assert.match(action, /DOCKER_DEFAULT_PLATFORM: \$\{\{ steps\.resolve-platform\.outputs\.platform \}\}/);
   assert.match(action, /ensure_sysctl .* kernel\.unprivileged_userns_clone 1/);
   assert.match(action, /ensure_sysctl .* kernel\.apparmor_restrict_unprivileged_userns 0/);
   assert.doesNotMatch(action, /secrets\.|github\.token|GITHUB_TOKEN/);

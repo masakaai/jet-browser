@@ -60,16 +60,16 @@ claude plugin marketplace add masakaai/jet-browser && claude plugin install jet-
 
 ### 3. 运行固定版本验证流程
 
-以下命令会拉取带构建来源证明的 `linux/amd64` 发布镜像，关闭浏览器外网、启动真实 WPE WebKit、打开内部测试页、通过原生输入写入文本、校验 DOM、截取 PNG，并关闭会话。
+以下命令会从同一多架构 manifest 自动选择原生 `linux/amd64` 或 `linux/arm64` 发布镜像，关闭浏览器外网、启动真实 WPE WebKit、打开内部测试页、通过原生输入写入文本、校验 DOM、截取 PNG，并关闭会话。
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.8.0
-DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.8.0 npm run standalone:smoke
+docker pull ghcr.io/masakaai/jet-browser:0.9.0
+JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.9.0 npm run standalone:smoke
 ~~~
 
-发布镜像目前只提供 `linux/amd64`；ARM 主机需要 Docker 的 amd64 模拟。生产环境应固定镜像 digest。若要按宿主机架构构建并验证当前检出的源码，运行 `npm run standalone`。
+Docker 会在 x86_64 与 ARM64 Linux 主机上自动选择匹配的原生镜像。生产环境应固定 manifest digest。若要按宿主机架构构建并验证当前检出的源码，运行 `npm run standalone`。
 
 成功结果包含：
 
@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Jet Browser
-        uses: masakaai/jet-browser@v0.8.0
+        uses: masakaai/jet-browser@v0.9.0
 ~~~
 
 ### 4. 接入运行时边界

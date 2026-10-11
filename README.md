@@ -107,20 +107,20 @@ MCP clients:
     "jet-browser": {
       "command": "docker",
       "args": [
-        "run", "--rm", "-i", "--platform=linux/amd64", "--network=none",
+        "run", "--rm", "-i", "--network=none",
         "--mount", "type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock",
-        "ghcr.io/masakaai/jet-browser-mcp:0.8.0"
+        "ghcr.io/masakaai/jet-browser-mcp:0.9.0"
       ]
     }
   }
 }
 ~~~
 
-[![Install Jet Browser in VS Code](https://img.shields.io/badge/VS_Code-Install_Jet_Browser-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522jet-browser%2522%252C%2522command%2522%253A%2522docker%2522%252C%2522args%2522%253A%255B%2522run%2522%252C%2522--rm%2522%252C%2522-i%2522%252C%2522--platform%253Dlinux%252Famd64%2522%252C%2522--network%253Dnone%2522%252C%2522--mount%2522%252C%2522type%253Dbind%252Csrc%253D%252Fvar%252Frun%252Fdocker.sock%252Cdst%253D%252Fvar%252Frun%252Fdocker.sock%2522%252C%2522ghcr.io%252Fmasakaai%252Fjet-browser-mcp%253A0.8.0%2522%255D%257D)
+[![Install Jet Browser in VS Code](https://img.shields.io/badge/VS_Code-Install_Jet_Browser-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect?url=vscode%3Amcp%2Finstall%3F%257B%2522name%2522%253A%2522jet-browser%2522%252C%2522command%2522%253A%2522docker%2522%252C%2522args%2522%253A%255B%2522run%2522%252C%2522--rm%2522%252C%2522-i%2522%252C%2522--network%253Dnone%2522%252C%2522--mount%2522%252C%2522type%253Dbind%252Csrc%253D%252Fvar%252Frun%252Fdocker.sock%252Cdst%253D%252Fvar%252Frun%252Fdocker.sock%2522%252C%2522ghcr.io%252Fmasakaai%252Fjet-browser-mcp%253A0.9.0%2522%255D%257D)
 
 VS Code opens a review prompt before adding the server. The link uses VS Code's official MCP install URI and preserves the same pinned image, disabled network, and Docker-socket boundary shown above.
 
-Cursor users can [install this exact configuration in one click](https://cursor.com/link/mcp/install?name=jet-browser&config=eyJjb21tYW5kIjoiZG9ja2VyIiwiYXJncyI6WyJydW4iLCItLXJtIiwiLWkiLCItLXBsYXRmb3JtPWxpbnV4L2FtZDY0IiwiLS1uZXR3b3JrPW5vbmUiLCItLW1vdW50IiwidHlwZT1iaW5kLHNyYz0vdmFyL3J1bi9kb2NrZXIuc29jayxkc3Q9L3Zhci9ydW4vZG9ja2VyLnNvY2siLCJnaGNyLmlvL21hc2FrYWFpL2pldC1icm93c2VyLW1jcDowLjguMCJdfQ==). Cursor opens a review prompt before adding it; the Docker-socket warning below still applies.
+Cursor users can [install this exact configuration in one click](https://cursor.com/link/mcp/install?name=jet-browser&config=eyJjb21tYW5kIjoiZG9ja2VyIiwiYXJncyI6WyJydW4iLCItLXJtIiwiLWkiLCItLW5ldHdvcms9bm9uZSIsIi0tbW91bnQiLCJ0eXBlPWJpbmQsc3JjPS92YXIvcnVuL2RvY2tlci5zb2NrLGRzdD0vdmFyL3J1bi9kb2NrZXIuc29jayIsImdoY3IuaW8vbWFzYWthYWkvamV0LWJyb3dzZXItbWNwOjAuOS4wIl19). Cursor opens a review prompt before adding it; the Docker-socket warning below still applies.
 
 The Codex and Claude Code paths install the Jet Browser skill, which teaches coding agents how to check requirements, run the verified standalone flow, integrate the versioned tool schemas, and preserve the runtime's safety boundaries. The same repository-local skill is available at [`.agents/skills/jet-browser/SKILL.md`](./.agents/skills/jet-browser/SKILL.md) for agents that discover project skills directly.
 
@@ -130,16 +130,16 @@ The [MCP verifier](./integrations/mcp/README.md) is published as [`io.github.mas
 
 ### 3. Run the verified standalone flow
 
-Published from a tagged GitHub release, the public `linux/amd64` image carries build provenance for its immutable digest. The smoke test disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
+Published from a tagged GitHub release, one multi-platform manifest provides native `linux/amd64` and `linux/arm64` images with per-platform provenance. The smoke test disables outbound networking, starts a real browser, opens a local page, types through the native input path, verifies the DOM, captures a PNG, and closes the session.
 
 ~~~bash
 git clone https://github.com/masakaai/jet-browser.git
 cd jet-browser
-docker pull --platform=linux/amd64 ghcr.io/masakaai/jet-browser:0.8.0
-DOCKER_DEFAULT_PLATFORM=linux/amd64 JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.8.0 npm run standalone:smoke
+docker pull ghcr.io/masakaai/jet-browser:0.9.0
+JET_BROWSER_IMAGE=ghcr.io/masakaai/jet-browser:0.9.0 npm run standalone:smoke
 ~~~
 
-The published image currently targets `linux/amd64`; ARM hosts need Docker's amd64 emulation for this path. Pin its digest in production. To build and verify the checked-out source for the host architecture instead, run `npm run standalone`.
+Docker selects the matching native image from the manifest on x86_64 and ARM64 Linux hosts. Pin the manifest digest in production. To build and verify the checked-out source for the host architecture instead, run `npm run standalone`.
 
 Successful output includes:
 
@@ -163,10 +163,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Verify Jet Browser
-        uses: masakaai/jet-browser@v0.8.0
+        uses: masakaai/jet-browser@v0.9.0
 ~~~
 
-The Action pulls the public `linux/amd64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
+The Action selects the runner's native `linux/amd64` or `linux/arm64` release image, prepares the WPE sandbox on GitHub-hosted Linux runners, starts a real browser with outbound networking disabled, verifies native input and DOM state, captures a PNG, and cleans up the container. Self-hosted runners must already permit unprivileged user namespaces; the Action fails with the required setting instead of changing self-hosted runner settings.
 
 ### 4. Embed the runtime boundary
 
@@ -180,14 +180,14 @@ printf '%s\n' \
   '{"op":"snapshot"}' \
   '{"op":"screenshot"}' \
   '{"op":"close"}' |
-docker run --rm -i --platform=linux/amd64 --network=none --cap-drop=ALL \
+docker run --rm -i --network=none --cap-drop=ALL \
   --env=JET_BROWSER_SMOKE=1 \
   --cap-add=SETUID --cap-add=SETGID \
   --security-opt=apparmor=unconfined \
   --security-opt=systempaths=unconfined \
   --security-opt=seccomp=./seccomp_profile.json \
   --security-opt=no-new-privileges --memory=1g --cpus=2 \
-  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.8.0
+  --pids-limit=256 --shm-size=256m ghcr.io/masakaai/jet-browser:0.9.0
 ~~~
 
 For model-facing tools, use the versioned declarations in [`sdk/tools.mjs`](./sdk/tools.mjs) and the framework-neutral binding pattern in [Agent tool catalog](./docs/agent-tools.md).

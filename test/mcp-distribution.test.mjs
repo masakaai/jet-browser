@@ -27,7 +27,6 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.equal(mcpPackage.identifier, `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`);
   assert.equal(mcpPackage.transport.type, 'stdio');
   assert.deepEqual(mcpPackage.runtimeArguments.map(({ name, value }) => [name, value]), [
-    ['--platform', 'linux/amd64'],
     ['--network', 'none'],
     ['--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock'],
   ]);
@@ -47,7 +46,9 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.match(workflow, /file: \.\/Dockerfile\.mcp/);
   assert.match(workflow, /JET_BROWSER_RUNTIME_IMAGE=ghcr\.io\/\$\{\{ github\.repository \}\}@\$\{\{ needs\.publish-runtime\.outputs\.digest \}\}/);
   assert.match(readme, /Docker socket grants host-level control/);
-  assert.match(readme, /--platform=linux\/amd64/);
+  assert.match(readme, /linux\/amd64/);
+  assert.match(readme, /linux\/arm64/);
+  assert.doesNotMatch(readme, /--platform=linux\/amd64/);
   assert.match(readme, /--network=none/);
   assert.match(smoke, /name: 'jet_browser_verify'/);
   assert.match(smoke, /linux\/arm64/);
@@ -77,7 +78,7 @@ test('README Cursor install link preserves the reviewed MCP runtime boundary', a
   assert.deepEqual(config, {
     command: 'docker',
     args: [
-      'run', '--rm', '-i', '--platform=linux/amd64', '--network=none',
+      'run', '--rm', '-i', '--network=none',
       '--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock',
       `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`,
     ],
@@ -104,7 +105,7 @@ test('README VS Code install link preserves the reviewed MCP runtime boundary', 
     name: 'jet-browser',
     command: 'docker',
     args: [
-      'run', '--rm', '-i', '--platform=linux/amd64', '--network=none',
+      'run', '--rm', '-i', '--network=none',
       '--mount', 'type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock',
       `ghcr.io/masakaai/jet-browser-mcp:${packageJson.version}`,
     ],
