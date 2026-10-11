@@ -130,7 +130,7 @@ test('package exports preserve legacy SDK subpaths alongside stable aliases', as
   assert.equal(typeof (await import('jet-browser/sdk/transport.mjs')).MasakaTransport, 'function');
 });
 
-test('stable releases publish an attested standalone image from the release tag', async () => {
+test('stable releases publish and verify native multi-arch images from the release tag', async () => {
   const workflow = await readFile(resolve(root, '.github/workflows/publish-container.yml'), 'utf8');
   const readme = await readFile(resolve(root, 'README.md'), 'utf8');
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
@@ -145,12 +145,26 @@ test('stable releases publish an attested standalone image from the release tag'
   assert.match(workflow, /RELEASE_REF: \$\{\{ github\.ref \}\}/);
   assert.match(workflow, /git fetch --force --depth=1 origin "\$RELEASE_REF"/);
   assert.match(workflow, /FETCH_HEAD\^\{commit\}/);
-  assert.match(workflow, /IMAGE_NAME: \$\{\{ github\.repository \}\}/);
+  assert.equal(
+    (workflow.match(/uses: docker\/github-builder\/\.github\/workflows\/build\.yml@58cb9f5b71b1836d6f690c1e95effdeb9b98cb8a/g) || []).length,
+    2,
+  );
+  assert.equal((workflow.match(/platforms: linux\/amd64,linux\/arm64/g) || []).length, 2);
+  assert.equal((workflow.match(/sbom: true/g) || []).length, 2);
+  assert.equal((workflow.match(/sign: 'true'/g) || []).length, 2);
+  assert.match(workflow, /meta-images: ghcr\.io\/\$\{\{ github\.repository \}\}/);
   assert.match(workflow, /file: \.\/Dockerfile\.standalone/);
-  assert.match(workflow, /flavor: latest=false/);
+  assert.match(workflow, /meta-flavor: latest=false/);
   assert.match(workflow, /type=semver,pattern=\{\{version\}\}/);
   assert.doesNotMatch(workflow, /type=semver,pattern=\{\{major\}\}\.\{\{minor\}\}|type=raw,value=latest/);
-  assert.match(workflow, /subject-digest: \$\{\{ steps\.push\.outputs\.digest \}\}/);
+  assert.match(workflow, /JET_BROWSER_RUNTIME_IMAGE=ghcr\.io\/\$\{\{ github\.repository \}\}@\$\{\{ needs\.publish-runtime\.outputs\.digest \}\}/);
+  assert.match(workflow, /runs-on: \$\{\{ matrix\.runner \}\}/);
+  assert.match(workflow, /runner: ubuntu-24\.04-arm[\s\S]*?platform: linux\/arm64/);
+  assert.match(workflow, /runner: ubuntu-24\.04[\s\S]*?platform: linux\/amd64/);
+  assert.match(workflow, /uses: \.\//);
+  assert.match(workflow, /MCP_IMAGE: ghcr\.io\/\$\{\{ github\.repository \}\}-mcp@\$\{\{ needs\.publish-mcp\.outputs\.digest \}\}/);
+  assert.match(workflow, /mcp-container-smoke\.mjs "\$MCP_IMAGE" "\$EXPECTED_PLATFORM" "\$RUNTIME_IMAGE"/);
+  assert.doesNotMatch(workflow, /setup-qemu-action/);
 
   assert.match(readme, new RegExp(`ghcr\\.io/masakaai/jet-browser:${packageJson.version.replaceAll('.', '\\.')}\\b`));
   assert.doesNotMatch(readme, /ghcr\.io\/masakaai\/jet-browser:latest/);

@@ -35,15 +35,17 @@ test('MCP OCI package is registry-owned, network-disabled, and version-aligned',
   assert.match(dockerfile, /^FROM node:24-alpine$/m);
   assert.match(dockerfile, /apk add --no-cache docker-cli/);
   assert.match(dockerfile, /ARG JET_BROWSER_RUNTIME_IMAGE=/);
-  assert.match(dockerfile, /ARG JET_BROWSER_RUNTIME_PLATFORM=linux\/amd64/);
+  assert.match(dockerfile, /ARG TARGETPLATFORM/);
+  assert.match(dockerfile, /JET_BROWSER_RUNTIME_PLATFORM:-\$TARGETPLATFORM/);
+  assert.doesNotMatch(dockerfile, /ARG JET_BROWSER_RUNTIME_PLATFORM=linux\/amd64/);
   assert.match(dockerfile, /render-mcp-runtime-config\.mjs/);
   assert.match(dockerfile, /io\.modelcontextprotocol\.server\.name="io\.github\.masakaai\/jet-browser"/);
   assert.match(dockerfile, /ENTRYPOINT \["node", "integrations\/mcp\/server\.mjs"\]/);
   assert.doesNotMatch(dockerfile, /COPY \. \.|docker:dind|dockerd/);
 
-  assert.match(workflow, /MCP_IMAGE_NAME: \$\{\{ github\.repository \}\}-mcp/);
+  assert.match(workflow, /meta-images: ghcr\.io\/\$\{\{ github\.repository \}\}-mcp/);
   assert.match(workflow, /file: \.\/Dockerfile\.mcp/);
-  assert.match(workflow, /subject-name: \$\{\{ env\.REGISTRY \}\}\/\$\{\{ env\.MCP_IMAGE_NAME \}\}/);
+  assert.match(workflow, /JET_BROWSER_RUNTIME_IMAGE=ghcr\.io\/\$\{\{ github\.repository \}\}@\$\{\{ needs\.publish-runtime\.outputs\.digest \}\}/);
   assert.match(readme, /Docker socket grants host-level control/);
   assert.match(readme, /--platform=linux\/amd64/);
   assert.match(readme, /--network=none/);
