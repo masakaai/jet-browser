@@ -55,7 +55,7 @@ Jet Browser reached a verified page in **1,445.25 ms** with **189.6 MiB** of act
 Paste this single line into Codex, Claude Code, or another repository-aware coding agent. GitHub code blocks include a one-click copy action.
 
 ~~~text
-Install or upgrade Jet Browser to the latest main for this repository from https://github.com/masakaai/jet-browser. Read README.md and use its native marketplace instructions when Codex or Claude Code plugin commands are available; otherwise register .agents/skills/jet-browser/SKILL.md as a repository skill. Confirm Docker and Node.js 24+, run npm run standalone, and report whether browser startup, native input, DOM verification, and PNG capture passed. Do not attach to my daily Chrome profile or start a persistent Chrome daemon. Follow docs/demo.md if setup or verification fails.
+Install or upgrade Jet Browser to the latest main for this repository from https://github.com/masakaai/jet-browser. Read README.md and use its native marketplace instructions when Codex or Claude Code plugin commands are available; otherwise register .agents/skills/jet-browser/SKILL.md as a repository skill. Confirm Docker is available, run curl -fsSL https://raw.githubusercontent.com/masakaai/jet-browser/main/scripts/try-jet.sh | sh, and report whether browser startup, native input, DOM verification, and PNG capture passed. Do not attach to my daily Chrome profile or start a persistent Chrome daemon. Only source builds require Node.js 24+; follow docs/demo.md if setup or verification fails.
 ~~~
 
 ## Quick start

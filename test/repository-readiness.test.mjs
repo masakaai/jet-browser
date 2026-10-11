@@ -38,6 +38,19 @@ test('public README explains product fit before asking readers to study benchmar
   for (const fragment of fragments) assert.ok(headingSlugs.has(fragment), `Missing README heading for #${fragment}`);
 });
 
+test('coding-agent verification prompt uses the public Docker-only proof', async () => {
+  const readme = await readFile(resolve(root, 'README.md'), 'utf8');
+  const promptStart = readme.indexOf('## Let your coding agent verify it');
+  const promptEnd = readme.indexOf('## Quick start', promptStart);
+  const prompt = readme.slice(promptStart, promptEnd);
+
+  assert.ok(promptStart > 0 && promptEnd > promptStart);
+  assert.match(prompt, /Confirm Docker is available/);
+  assert.match(prompt, /curl -fsSL https:\/\/raw\.githubusercontent\.com\/masakaai\/jet-browser\/main\/scripts\/try-jet\.sh \| sh/);
+  assert.match(prompt, /Only source builds require Node\.js 24\+/);
+  assert.doesNotMatch(prompt, /run npm run standalone/);
+});
+
 test('Simplified Chinese README keeps the benchmark and agent verification path upfront', async () => {
   const readme = await readFile(resolve(root, 'README.zh-CN.md'), 'utf8');
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
