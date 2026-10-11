@@ -39,6 +39,8 @@ jobs:
         with:
           image: jet-browser:ci
           pull: 'false'
+      - name: Exercise the Docker-only quick start
+        run: sh scripts/try-jet.sh
       - name: Install MCP smoke-test dependencies
         run: npm ci
       - name: Exercise the MCP container entry point

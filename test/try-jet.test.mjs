@@ -132,6 +132,7 @@ test('Docker-only try script and README stay pinned to the released image', asyn
   const packageJson = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'));
   const script = await readFile(join(root, 'scripts/try-jet.sh'), 'utf8');
   const readme = await readFile(join(root, 'README.md'), 'utf8');
+  const workflow = await readFile(join(root, '.github/workflows/ci.yml'), 'utf8');
   const escaped = packageJson.version.replaceAll('.', '\\.');
 
   assert.match(script, new RegExp(`JET_BROWSER_VERSION='${escaped}'`));
@@ -140,4 +141,5 @@ test('Docker-only try script and README stay pinned to the released image', asyn
   assert.match(script, /5f4c3f92d6cf19fd6dfbbd4197e5a63546866ff8c1a3998e5c99bc589b2fcf11/);
   assert.match(readme, /scripts\/try-jet\.sh/);
   assert.match(readme, /Docker only—no clone, Node\.js, account, API key, or outbound browser network/);
+  assert.match(workflow, /run: sh scripts\/try-jet\.sh/);
 });
