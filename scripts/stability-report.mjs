@@ -135,6 +135,9 @@ export function validateStabilityReport(report) {
   if (passed && !/^sha256:[a-f0-9]{64}$/.test(report.environment.imageId)) {
     throw Error('Passing stability report is missing an immutable image ID');
   }
+  if (report.environment.sourceCommit !== undefined && !/^[a-f0-9]{40}$/.test(report.environment.sourceCommit)) {
+    throw Error('Invalid stability source commit');
+  }
   if (!Array.isArray(report.samples?.cycles) || !Array.isArray(report.samples?.resources)) {
     throw Error('Missing stability samples');
   }

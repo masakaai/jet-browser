@@ -46,7 +46,7 @@ Memory and process health are sampled at a fixed interval and after page cleanup
 The JSON artifact uses `schemaVersion: 1` and includes:
 
 - exact configuration and network mode;
-- Node, operating-system, architecture, Docker, and image identity;
+- Node, operating-system, architecture, Docker, and image identity, plus the exact source commit in CI;
 - ordered cycle and per-page evidence;
 - timestamped memory and process-role samples;
 - structured failures with the active stage, cycle, and page when available; and

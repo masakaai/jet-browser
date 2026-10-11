@@ -243,12 +243,14 @@ async function inspectEnvironment(docker, image, options) {
     runCommand(docker, ['image', 'inspect', '--format={{.Id}}', image], options),
     runCommand(docker, ['version', '--format={{.Server.Version}}'], options),
   ]);
+  const sourceCommit = options.environment?.GITHUB_SHA;
   return {
     node: process.version,
     platform: process.platform,
     arch: process.arch,
     dockerServerVersion: versionResult.stdout.trim(),
     imageId: imageResult.stdout.trim(),
+    ...(/^[a-f0-9]{40}$/.test(sourceCommit || '') ? { sourceCommit } : {}),
   };
 }
 

@@ -27,6 +27,7 @@ const validReport = () => ({
     arch: 'x64',
     dockerServerVersion: '29.0.0',
     imageId: `sha256:${'0'.repeat(64)}`,
+    sourceCommit: '1'.repeat(40),
   },
   samples: {
     cycles: [
@@ -188,5 +189,8 @@ test('stability report rejects missing evidence and inconsistent outcomes', () =
   const staleScreenshot = validReport();
   staleScreenshot.samples.cycles[0].pages[1].screenshotSha256 = staleScreenshot.samples.cycles[0].pages[0].screenshotSha256;
   cases.push(staleScreenshot);
+  const invalidCommit = validReport();
+  invalidCommit.environment.sourceCommit = 'main';
+  cases.push(invalidCommit);
   for (const report of cases) assert.throws(() => validateStabilityReport(report));
 });
