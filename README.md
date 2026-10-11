@@ -14,10 +14,6 @@
   <a href="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/masakaai/jet-browser/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
-<p align="center">
-  <a href="https://www.producthunt.com/products/jet-browser?launch=jet-browser"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1275130&amp;theme=light" alt="Jet Browser on Product Hunt" width="250" height="54"></a>
-</p>
-
 Jet Browser packages WPE WebKit and a Rust WebDriver bridge as a standalone runtime. One container runs one isolated browser session; your harness sends ordered JSONL commands and receives machine-readable results.
 
 Bring any harness or deterministic test runner. No account, API key, model, database, or hosted control plane is required.
@@ -303,3 +299,7 @@ docker build -f Dockerfile.wpe-worker -t jet-browser-worker:local .
 Jet Browser is browser infrastructure, not an LLM or agent framework. The core exposes its JSONL action protocol rather than pretending WPE implements Chromium-only extension, policy, or CDP contracts.
 
 Jet Browser is licensed under [Apache License 2.0](./LICENSE). Read [Contributing](./CONTRIBUTING.md) and [Security](./SECURITY.md) before deploying or changing the protocol.
+
+<p align="center">
+  <a href="https://www.producthunt.com/products/jet-browser?launch=jet-browser"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1275130&amp;theme=light" alt="Jet Browser on Product Hunt" width="250" height="54"></a>
+</p>
