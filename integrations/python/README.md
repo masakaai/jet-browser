@@ -71,3 +71,18 @@ with JetBrowserProcess(network="bridge", allow_network=True) as browser:
 - Cleanup is idempotent and force-removes the named container after normal or exceptional exit.
 
 The installable package bundles the reviewed seccomp policy and Apache-2.0 license. PyPI publication is intentionally not claimed until the protected Trusted Publishing release workflow is live.
+
+## Release and rollback
+
+The Python distribution version follows the repository's stable release version, and its default runtime image remains an immutable multi-platform manifest. `linux/amd64` and `linux/arm64` are the supported native runtime architectures. Python 3.11+ and Docker remain required.
+
+The `main` VCS command above is convenient for evaluation. For a reproducible deployment, replace `main` with a reviewed, known-good commit:
+
+~~~bash
+python3 -m pip install --force-reinstall \
+  "jet-browser @ git+https://github.com/masakaai/jet-browser.git@<commit>#subdirectory=integrations/python"
+~~~
+
+Rollback uses the same command with the previous known-good commit. The package at that commit restores its reviewed default runtime digest; callers that override `image=` must also restore a compatible immutable runtime manifest.
+
+`.github/workflows/publish-python.yml` runs only after a successful stable `publish-container` release. It rebuilds and verifies the wheel and sdist in an unprivileged job, then hands the exact retained artifact to a separate `pypi` environment whose only elevated permission is `id-token: write`. The publishing job uses the PyPI Trusted Publisher flow and contains no long-lived PyPI token. Before the first upload, a PyPI maintainer must configure the exact `masakaai/jet-browser`, `publish-python.yml`, and `pypi` identity and approve the protected GitHub environment; until then, PyPI availability is not claimed.
