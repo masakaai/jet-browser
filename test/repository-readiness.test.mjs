@@ -112,6 +112,15 @@ test('issue routing separates open-source discussion from managed support', asyn
   });
 });
 
+test('security reports use a private GitHub advisory instead of a public issue', async () => {
+  const policy = await readFile(resolve(root, 'SECURITY.md'), 'utf8');
+  const config = await readFile(resolve(root, '.github/ISSUE_TEMPLATE/config.yml'), 'utf8');
+
+  assert.match(policy, /https:\/\/github\.com\/masakaai\/jet-browser\/security\/advisories\/new/);
+  assert.match(policy, /Do not open a public issue/i);
+  assert.match(config, /https:\/\/github\.com\/masakaai\/jet-browser\/security\/policy/);
+});
+
 test('package and default worker versions stay aligned', async () => {
   const packageJson = JSON.parse(await readFile(resolve(root, 'package.json'), 'utf8'));
   const worker = await readFile(resolve(root, 'src/wpe-worker.mjs'), 'utf8');
