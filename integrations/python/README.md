@@ -85,4 +85,9 @@ python3 -m pip install --force-reinstall \
 
 Rollback uses the same command with the previous known-good commit. The package at that commit restores its reviewed default runtime digest; callers that override `image=` must also restore a compatible immutable runtime manifest.
 
-`.github/workflows/publish-python.yml` runs only after a successful stable `publish-container` release. It rebuilds and verifies the wheel and sdist in an unprivileged job, then hands the exact retained artifact to a separate `pypi` environment whose only elevated permission is `id-token: write`. The publishing job uses the PyPI Trusted Publisher flow and contains no long-lived PyPI token. Before the first upload, a PyPI maintainer must configure the exact `masakaai/jet-browser`, `publish-python.yml`, and `pypi` identity and approve the protected GitHub environment; until then, PyPI availability is not claimed.
+`.github/workflows/publish-python.yml` runs only after a successful stable `publish-container` release. It rebuilds and verifies the wheel and sdist in an unprivileged job, then gives the same verified wheel and source distribution to two isolated consumers:
+
+- A GitHub Release assets job has only `contents: write`, rechecks the stable tag and exact release commit, accepts exactly one version-matched wheel and sdist, and attaches those files idempotently to that release. It has no checkout or OIDC permission.
+- The separate `pypi` environment has only `id-token: write`, downloads the retained artifact again, and uses a PyPI Trusted Publisher without a long-lived token.
+
+GitHub Release assets will therefore be available from the first stable release created after this workflow lands, independently of PyPI account setup. Before the first PyPI upload, a maintainer must still configure the exact `masakaai/jet-browser`, `publish-python.yml`, and `pypi` identity and approve the protected GitHub environment; until then, PyPI availability is not claimed. Roll back by installing the wheel from the previous known-good release or by using the reviewed commit command above.

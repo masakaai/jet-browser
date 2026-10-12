@@ -41,3 +41,33 @@ test('successful stable container releases gate tokenless Python publishing', as
   assert.match(documentation, /PyPI Trusted Publisher/);
   assert.match(documentation, /known-good commit/);
 });
+
+test('stable releases attach the exact verified Python distributions with isolated write permission', async () => {
+  const [workflow, documentation] = await Promise.all([
+    read('.github/workflows/publish-python.yml'),
+    read('integrations/python/README.md'),
+  ]);
+  const releaseStart = workflow.indexOf('\n  attach-release-assets:');
+  const publishStart = workflow.indexOf('\n  publish:');
+
+  assert.ok(releaseStart > 0 && publishStart > releaseStart);
+  const releaseJob = workflow.slice(releaseStart, publishStart);
+  assert.match(releaseJob, /needs: build/);
+  assert.match(releaseJob, /permissions:\n      contents: write/);
+  assert.doesNotMatch(releaseJob, /id-token: write|environment:|actions\/checkout|gh-action-pypi-publish/);
+  assert.match(releaseJob, /actions\/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333/);
+  assert.match(releaseJob, /name: jet-browser-python-package/);
+  assert.match(releaseJob, /path: dist\/python/);
+  assert.match(releaseJob, /\[\[ "\$RELEASE_TAG" =~ \^v\[0-9\]\+\\\.\[0-9\]\+\\\.\[0-9\]\+\$ \]\]/);
+  assert.match(releaseJob, /EXPECTED_SHA: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+  assert.match(releaseJob, /git\/ref\/tags\/\$RELEASE_TAG/);
+  assert.match(releaseJob, /test "\$tag_sha" = "\$EXPECTED_SHA"/);
+  assert.match(releaseJob, /\.draft == false and \.prerelease == false/);
+  assert.match(releaseJob, /test "\$\{#wheels\[@\]\}" -eq 1/);
+  assert.match(releaseJob, /test "\$\{#sdists\[@\]\}" -eq 1/);
+  assert.match(releaseJob, /gh release upload "\$RELEASE_TAG"/);
+  assert.match(releaseJob, /"\$\{wheels\[0\]\}" "\$\{sdists\[0\]\}"/);
+  assert.match(releaseJob, /--clobber --repo "\$GITHUB_REPOSITORY"/);
+  assert.match(documentation, /GitHub Release assets/);
+  assert.match(documentation, /same verified wheel and source distribution/);
+});
